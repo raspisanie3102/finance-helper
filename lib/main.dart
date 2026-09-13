@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data.dart';
 import 'format.dart';
@@ -10,21 +11,25 @@ import 'screens/plan_screen.dart';
 import 'store.dart';
 import 'theme.dart';
 import 'widgets/common.dart';
+import 'widgets/tour.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
-  runApp(const FinanceHelperApp());
+  final prefs = await SharedPreferences.getInstance();
+  runApp(FinanceHelperApp(prefs: prefs));
 }
 
 class FinanceHelperApp extends StatelessWidget {
-  const FinanceHelperApp({super.key});
+  final SharedPreferences prefs;
+
+  const FinanceHelperApp({super.key, required this.prefs});
 
   @override
   Widget build(BuildContext context) {
-    final state = AppState();
+    final state = AppState(prefs: prefs);
     return AnimatedBuilder(
       animation: state,
       builder: (context, _) {
@@ -70,9 +75,12 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int tab = 0;
   bool onboarded = false;
+  final navAddKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+
     if (!onboarded) {
       return OnboardingScreen(onDone: () => setState(() => onboarded = true));
     }
@@ -84,14 +92,59 @@ class _RootShellState extends State<RootShell> {
       const MoreScreen(),
     ];
 
-    return Scaffold(
-      body: IndexedStack(index: tab, children: screens),
-      extendBody: true,
-      bottomNavigationBar: FinanceNavBar(
-        selectedIndex: tab,
-        onTap: (i) => setState(() => tab = i),
-        onAdd: _showAddSheet,
-      ),
+    final showTour = !app.tourCompleted;
+
+    return Stack(
+      children: [
+        Scaffold(
+          body: IndexedStack(index: tab, children: screens),
+          extendBody: true,
+          bottomNavigationBar: FinanceNavBar(
+            selectedIndex: tab,
+            onTap: (i) => setState(() => tab = i),
+            onAdd: _showAddSheet,
+            addButtonKey: navAddKey,
+          ),
+        ),
+        // Краткая инструкция при первом запуске: подсвечивает
+        // ключевые элементы главного экрана шаг за шагом.
+        if (showTour && tab == 0)
+          SizedBox.expand(
+            child: TourOverlay(
+              steps: [
+                TourStep(
+                  key: HomeScreen.balanceKey,
+                  emoji: '💰',
+                  title: 'Доступно сейчас',
+                  text: 'Это ваши деньги после обязательных платежей и '
+                      'накоплений. Сумма всегда актуальна.',
+                ),
+                TourStep(
+                  key: HomeScreen.tipKey,
+                  emoji: '💡',
+                  title: 'Сегодня можно потратить',
+                  text: 'Ваш дневной лимит. Пересчитывается автоматически '
+                      'после каждого расхода, дохода и платежа.',
+                ),
+                TourStep(
+                  key: HomeScreen.tilesKey,
+                  emoji: '🍽',
+                  title: 'Питание и развлечения',
+                  text: 'Меню на день и варианты отдыха — подобраны под '
+                      'ваш бюджет, чтобы вы оставались в плане.',
+                ),
+                TourStep(
+                  key: navAddKey,
+                  emoji: '➕',
+                  title: 'Быстрое добавление',
+                  text: 'Нажмите «+», чтобы записать расход за пару '
+                      'секунд — дневной лимит пересчитается сам.',
+                ),
+              ],
+              onFinish: app.completeTour,
+            ),
+          ),
+      ],
     );
   }
 

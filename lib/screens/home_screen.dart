@@ -14,6 +14,11 @@ import 'shopping_screen.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  // Цели для подсветки в туре-инструкции при первом запуске.
+  static final GlobalKey balanceKey = GlobalKey();
+  static final GlobalKey tipKey = GlobalKey();
+  static final GlobalKey tilesKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
@@ -120,6 +125,7 @@ class _BalanceCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
+      key: HomeScreen.balanceKey,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -256,6 +262,7 @@ class _DailyBudgetTip extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
+      key: HomeScreen.tipKey,
       child: AppCard(
         color: pal.tipBg,
         padding: const EdgeInsets.all(16),
@@ -321,6 +328,7 @@ class _QuickTiles extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+      key: HomeScreen.tilesKey,
       child: Row(
         children: [
           for (var i = 0; i < tiles.length; i++) ...[

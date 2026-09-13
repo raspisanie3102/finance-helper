@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data.dart';
 
@@ -7,9 +8,16 @@ import 'data.dart';
 /// Все суммы хранятся числами; отображение — только через
 /// formatCurrency() из format.dart, всегда в BYN.
 class AppState extends ChangeNotifier {
+  AppState({required SharedPreferences prefs}) : _prefs = prefs {
+    tourCompleted = _prefs.getBool('tourCompleted') ?? false;
+  }
+
+  final SharedPreferences _prefs;
+
   // ── Настройки ──
   ThemeMode themeMode = ThemeMode.system;
   bool pairMode = false;
+  bool tourCompleted = false;
   final String userName = 'Александр';
   final String city = 'Минск, Беларусь';
 
@@ -76,6 +84,12 @@ class AppState extends ChangeNotifier {
       shopping.where((s) => !s.checked).fold(0, (sum, s) => sum + s.price);
 
   // ── Действия ──
+  void completeTour() {
+    tourCompleted = true;
+    _prefs.setBool('tourCompleted', true);
+    notifyListeners();
+  }
+
   void addExpense(double amount, String category, [String who = 'Я']) {
     expenses.add(Expense(amount, category, who));
     notifyListeners();

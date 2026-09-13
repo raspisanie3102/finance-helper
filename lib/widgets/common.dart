@@ -10,12 +10,14 @@ class FinanceNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final VoidCallback onAdd;
+  final GlobalKey? addButtonKey;
 
   const FinanceNavBar({
     super.key,
     required this.selectedIndex,
     required this.onTap,
     required this.onAdd,
+    this.addButtonKey,
   });
 
   @override
@@ -56,7 +58,7 @@ class FinanceNavBar extends StatelessWidget {
                 child: Center(
                   child: Transform.translate(
                     offset: const Offset(0, -14),
-                    child: _AddButton(onTap: onAdd),
+                    child: _AddButton(onTap: onAdd, buttonKey: addButtonKey),
                   ),
                 ),
               ),
@@ -138,13 +140,15 @@ class _NavItem extends StatelessWidget {
 
 class _AddButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _AddButton({required this.onTap});
+  final GlobalKey? buttonKey;
+  const _AddButton({required this.onTap, this.buttonKey});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        key: buttonKey,
         width: 56,
         height: 56,
         decoration: BoxDecoration(
