@@ -181,6 +181,50 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int pairChoice = 0; // 0 — «Только я», 1 — «Я и партнёр»
   final Set<String> interests = {'Питание', 'Развлечения', 'Накопления'};
 
+  // План месяца: суммы редактируются и сразу сохраняются.
+  final incomeController = TextEditingController(text: '3 500');
+  final mandatoryController = TextEditingController(text: '1 500');
+  final savingsController = TextEditingController(text: '500');
+  bool amountsSynced = false;
+
+  @override
+  void dispose() {
+    controller.dispose();
+    incomeController.dispose();
+    mandatoryController.dispose();
+    savingsController.dispose();
+    super.dispose();
+  }
+
+  /// Заполняем поля сохранёнными значениями плана (однократно).
+  void _syncAmountControllers(AppState app) {
+    if (amountsSynced) return;
+    amountsSynced = true;
+    incomeController.text = _amountText(app.income);
+    mandatoryController.text = _amountText(app.monthlyMandatory);
+    savingsController.text = _amountText(app.monthlySavings);
+  }
+
+  static String _amountText(double v) =>
+      v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+
+  static double? _parseAmount(String raw) {
+    final v = double.tryParse(
+        raw.replaceAll(RegExp(r'\s'), '').replaceAll(',', '.'));
+    return v != null && v >= 0 ? v : null;
+  }
+
+  /// Любое изменение суммы сразу пересчитывает бюджет и дневной лимит.
+  void _saveAmounts() {
+    final app = AppScope.of(context);
+    final income = _parseAmount(incomeController.text);
+    if (income != null) app.setIncome(income);
+    final mandatory = _parseAmount(mandatoryController.text);
+    if (mandatory != null) app.setMonthlyMandatory(mandatory);
+    final savings = _parseAmount(savingsController.text);
+    if (savings != null) app.setMonthlySavings(savings);
+  }
+
   static const pages = [
     ('👨‍❤️‍👩', 'Сколько людей будет пользоваться приложением?', ''),
     ('💰', 'Ваш доход', 'Ежемесячная сумма в BYN'),
@@ -200,14 +244,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
+    final app = AppScope.of(context);
+    _syncAmountControllers(app);
     final isLast = page == pages.length - 1;
 
     return Scaffold(
@@ -268,12 +308,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ],
                         if (i == 1 || i == 2 || i == 3) ...[
                           const SizedBox(height: 28),
-                          _AmountDemo(
-                              text: i == 2
-                                  ? '3 500 BYN'
-                                  : i == 3
-                                      ? '1 500 BYN'
-                                      : '500 BYN'),
+                          _AmountField(
+                            controller: i == 1
+                                ? incomeController
+                                : i == 2
+                                    ? mandatoryController
+                                    : savingsController,
+                            hint: i == 1
+                                ? '3 500'
+                                : i == 2
+                                    ? '1 500'
+                                    : '500',
+                            onChanged: (_) => _saveAmounts(),
+                          ),
                         ],
                         if (i == 4) ...[
                           const SizedBox(height: 28),
@@ -402,33 +449,53 @@ class _ChoiceCard extends StatelessWidget {
   }
 }
 
-class _AmountDemo extends StatelessWidget {
-  final String text;
-  const _AmountDemo({required this.text});
+/// Редактируемая сумма плана: доход, обязательные расходы, накопления.
+class _AmountField extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final String hint;
+  const _AmountField({
+    required this.controller,
+    required this.onChanged,
+    required this.hint,
+  });
 
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: pal.card,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-              color: pal.shadow, blurRadius: 14, offset: const Offset(0, 6)),
-        ],
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 30,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.8,
+        color: pal.text,
       ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TextStyle(
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
           fontSize: 30,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.8,
-          color: pal.text,
+          color: pal.sub.withValues(alpha: 0.45),
         ),
+        suffixText: 'BYN',
+        suffixStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: AppColors.green,
+        ),
+        filled: true,
+        fillColor: pal.card,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       ),
     );
   }

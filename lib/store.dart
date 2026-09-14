@@ -23,6 +23,11 @@ class AppState extends ChangeNotifier {
     pairConnected = _prefs.getBool('pairConnected') ?? false;
     inviteCode = _prefs.getString('inviteCode') ?? '';
 
+    // План месяца задаётся на онбординге и сохраняется.
+    income = _prefs.getDouble('income') ?? 3500;
+    monthlyMandatory = _prefs.getDouble('monthlyMandatory') ?? 1500;
+    monthlySavings = _prefs.getDouble('monthlySavings') ?? 500;
+
     // Восстановление сессии: авторизованный пользователь пропускает
     // экраны входа и регистрации.
     final savedEmail = _prefs.getString('authEmail');
@@ -57,10 +62,10 @@ class AppState extends ChangeNotifier {
   final String partnerName = 'Мария';
   final double partnerIncome = 2900; // доход партнёра (демо-сценарий)
 
-  // ── Бюджет (демо-значения по ТЗ) ──
+  // ── Бюджет (демо-значения по ТЗ; меняются на онбординге) ──
   double income = 3500; // месячный доход (пополняется операциями «Доход»)
-  static const double monthlyMandatory = 1500; // обязательные расходы
-  static const double monthlySavings = 500; // накопления
+  double monthlyMandatory = 1500; // обязательные расходы
+  double monthlySavings = 500; // накопления
   static const double monthlyPlanned = 800; // запланированные расходы
 
   /// Обязательные платежи + накопления + запланированные расходы месяца.
@@ -335,6 +340,29 @@ class AppState extends ChangeNotifier {
   void setThemeMode(ThemeMode mode) {
     themeMode = mode;
     _prefs.setInt('themeMode', mode.index);
+    notifyListeners();
+  }
+
+  // ── План месяца: задаётся на онбординге, сохраняется ──
+
+  void setIncome(double value) {
+    if (value < 0) return;
+    income = value;
+    _prefs.setDouble('income', value);
+    notifyListeners();
+  }
+
+  void setMonthlyMandatory(double value) {
+    if (value < 0) return;
+    monthlyMandatory = value;
+    _prefs.setDouble('monthlyMandatory', value);
+    notifyListeners();
+  }
+
+  void setMonthlySavings(double value) {
+    if (value < 0) return;
+    monthlySavings = value;
+    _prefs.setDouble('monthlySavings', value);
     notifyListeners();
   }
 

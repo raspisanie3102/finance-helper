@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,5 +27,40 @@ void main() {
     expect(
         find.text('Сколько людей будет пользоваться приложением?'),
         findsOneWidget);
+  });
+
+  testWidgets('Доход на онбординге редактируется и попадает в бюджет',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(FinanceHelperApp(prefs: prefs));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Продолжить как гость'));
+    await tester.pumpAndSettle();
+
+    // Шаг «Ваш доход».
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ваш доход'), findsOneWidget);
+
+    final field = find.byType(TextField);
+    expect(field, findsOneWidget);
+    await tester.enterText(field, '2000');
+    await tester.pumpAndSettle();
+
+    // Дойти до конца онбординга: страницы 2, 3, 4 и кнопка «Начать».
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Начать'));
+    await tester.pumpAndSettle();
+
+    // Новый доход отражён на карточке баланса («На счете»).
+    // Форматтер разделяет разряды неразрывным пробелом.
+    expect(find.text('2\u00A0000 BYN'), findsOneWidget);
   });
 }

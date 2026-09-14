@@ -293,13 +293,13 @@ class _MonthStructureCard extends StatelessWidget {
         amount: app.combinedIncome,
         positive: true
       ),
-      (emoji: '🏠', name: 'Обязательные расходы', amount: -AppState.monthlyMandatory, positive: false),
-      (emoji: '🌱', name: 'Накопления', amount: -AppState.monthlySavings, positive: false),
+      (emoji: '🏠', name: 'Обязательные расходы', amount: -app.monthlyMandatory, positive: false),
+      (emoji: '🌱', name: 'Накопления', amount: -app.monthlySavings, positive: false),
       (emoji: '🛍', name: 'Планируемые расходы', amount: -AppState.monthlyPlanned, positive: false),
     ];
     final free = app.combinedIncome -
-        AppState.monthlyMandatory -
-        AppState.monthlySavings -
+        app.monthlyMandatory -
+        app.monthlySavings -
         AppState.monthlyPlanned;
 
     return Padding(

@@ -82,7 +82,11 @@ class _TourOverlayState extends State<TourOverlay> {
               onTap: _next,
               behavior: HitTestBehavior.opaque,
               child: TweenAnimationBuilder<Rect?>(
-                tween: Tween(end: target?.inflate(10)),
+                // Пока цель не найдена (первый кадр), окно нулевого размера.
+                tween: RectTween(
+                  begin: Rect.zero,
+                  end: target?.inflate(10) ?? Rect.zero,
+                ),
                 duration: const Duration(milliseconds: 350),
                 curve: Curves.easeOutCubic,
                 builder: (context, holeRect, _) => CustomPaint(
@@ -322,7 +326,7 @@ class _SpotlightPainter extends CustomPainter {
     canvas.drawPath(overlay, Paint()..color = barrier);
 
     // мягкая светлая обводка вокруг подсвеченного элемента
-    if (hole != null) {
+    if (hole != null && hole!.width > 0 && hole!.height > 0) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(hole!, const Radius.circular(24)),
         Paint()
