@@ -22,6 +22,18 @@ class AppState extends ChangeNotifier {
     pairMode = _prefs.getBool('pairMode') ?? false;
     pairConnected = _prefs.getBool('pairConnected') ?? false;
     inviteCode = _prefs.getString('inviteCode') ?? '';
+
+    // Восстановление сессии: авторизованный пользователь пропускает
+    // экраны входа и регистрации.
+    final savedEmail = _prefs.getString('authEmail');
+    if (savedEmail != null) {
+      user = User(
+        name: _prefs.getString('authName') ?? 'Александр',
+        email: savedEmail,
+        passwordHash: _prefs.getString('authHash') ?? '',
+        authProvider: _prefs.getString('authProvider') ?? 'email',
+      );
+    }
   }
 
   final SharedPreferences _prefs;
@@ -29,8 +41,14 @@ class AppState extends ChangeNotifier {
   // ── Настройки ──
   ThemeMode themeMode = ThemeMode.system;
   bool tourCompleted = false;
-  final String userName = 'Александр';
+  User? user;
   final String city = 'Минск, Беларусь';
+
+  /// Имя для приветствий: из аккаунта или демо-имя по умолчанию.
+  String get userName {
+    final name = user?.name.trim() ?? '';
+    return name.isEmpty ? 'Александр' : name;
+  }
 
   // ── Режим «Пара» ──
   bool pairMode = false;
@@ -272,6 +290,29 @@ class AppState extends ChangeNotifier {
   void completeTour() {
     tourCompleted = true;
     _prefs.setBool('tourCompleted', true);
+    notifyListeners();
+  }
+
+  // ── Авторизация (прототип: без реальной проверки на сервере) ──
+
+  /// Сохраняет сессию после входа, регистрации, входа через Apple
+  /// или гостевого режима. Объединение аккаунтов в «Пару» выполняет
+  /// онбординг и код приглашения — здесь этого нет намеренно.
+  void completeSignIn(User newUser) {
+    user = newUser;
+    _prefs.setString('authEmail', newUser.email);
+    _prefs.setString('authName', newUser.name);
+    _prefs.setString('authProvider', newUser.authProvider);
+    _prefs.setString('authHash', newUser.passwordHash);
+    notifyListeners();
+  }
+
+  void signOut() {
+    user = null;
+    _prefs.remove('authEmail');
+    _prefs.remove('authName');
+    _prefs.remove('authProvider');
+    _prefs.remove('authHash');
     notifyListeners();
   }
 

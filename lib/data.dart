@@ -1,5 +1,32 @@
 // ─────────────────────────── Модели ───────────────────────────
 
+/// Авторизованный пользователь.
+///
+/// Для прототипа passwordHash — заглушка (не настоящий хэш),
+/// а вход выполняется без проверки на сервере.
+class User {
+  final String name;
+  final String email;
+  final String passwordHash;
+  final String authProvider; // 'email' | 'apple' | 'guest'
+  const User({
+    required this.name,
+    required this.email,
+    this.passwordHash = '',
+    required this.authProvider,
+  });
+}
+
+/// Заглушка хэша пароля для прототипа: простой FNV-подобный свёрток.
+String stubPasswordHash(String password) {
+  var h = 0x811C9DC5;
+  for (final c in password.codeUnits) {
+    h ^= c;
+    h = (h * 0x01000193) & 0x7FFFFFFF;
+  }
+  return h.toRadixString(16);
+}
+
 class Ingredient {
   final String name;
   final String qty;

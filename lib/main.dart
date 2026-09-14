@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data.dart';
 import 'format.dart';
+import 'screens/auth_screen.dart';
 import 'screens/goals_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/more_screen.dart';
@@ -80,6 +81,11 @@ class _RootShellState extends State<RootShell> {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+
+    // Авторизация — самый первый экран при первом открытии.
+    if (app.user == null) {
+      return const AuthScreen();
+    }
 
     if (!onboarded) {
       return OnboardingScreen(onDone: () => setState(() => onboarded = true));
@@ -176,8 +182,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final Set<String> interests = {'Питание', 'Развлечения', 'Накопления'};
 
   static const pages = [
-    ('🌿', 'Добро пожаловать в Финансовый помощник',
-        'Планируйте деньги так, чтобы оставалось место для жизни.'),
     ('👨‍❤️‍👩', 'Сколько людей будет пользоваться приложением?', ''),
     ('💰', 'Ваш доход', 'Ежемесячная сумма в BYN'),
     ('🏠', 'Обязательные расходы', 'Аренда, коммунальные, связь'),
@@ -248,7 +252,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                           ),
                         ],
-                        if (i == 1) ...[
+                        if (i == 0) ...[
                           const SizedBox(height: 28),
                           _ChoiceCard(
                               emoji: '🧑',
@@ -262,7 +266,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               selected: pairChoice == 1,
                               onTap: () => _choosePairMode(1)),
                         ],
-                        if (i == 2 || i == 3 || i == 4) ...[
+                        if (i == 1 || i == 2 || i == 3) ...[
                           const SizedBox(height: 28),
                           _AmountDemo(
                               text: i == 2
@@ -271,7 +275,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                       ? '1 500 BYN'
                                       : '500 BYN'),
                         ],
-                        if (i == 5) ...[
+                        if (i == 4) ...[
                           const SizedBox(height: 28),
                           _ChoiceCard(
                               emoji: '🍽',

@@ -70,6 +70,13 @@ class MoreScreen extends StatelessWidget {
                               style:
                                   TextStyle(fontSize: 13, color: pal.sub),
                             ),
+                            if ((app.user?.email ?? '').isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                app.user!.email,
+                                style: TextStyle(fontSize: 12, color: pal.sub),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -266,9 +273,30 @@ class MoreScreen extends StatelessWidget {
                         emoji: 'ℹ️',
                         title: 'О приложении',
                         trailing: Text(
-                          'Прототип 0.2',
+                          'Прототип 0.3',
                           style: TextStyle(
                             fontSize: 14,
+                            color: pal.sub,
+                          ),
+                        ),
+                      ),
+                      Divider(height: 1, color: pal.divider),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          app.signOut();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Вы вышли из аккаунта. Возвращайтесь! 👋'),
+                            ),
+                          );
+                        },
+                        child: _SettingsRow(
+                          emoji: '🚪',
+                          title: 'Выйти из аккаунта',
+                          trailing: Icon(
+                            Icons.chevron_right_rounded,
+                            size: 20,
                             color: pal.sub,
                           ),
                         ),
