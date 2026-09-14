@@ -172,16 +172,28 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final controller = PageController();
   int page = 0;
+  int pairChoice = 0; // 0 — «Только я», 1 — «Я и партнёр»
+  final Set<String> interests = {'Питание', 'Развлечения', 'Накопления'};
 
   static const pages = [
     ('🌿', 'Добро пожаловать в Финансовый помощник',
         'Планируйте деньги так, чтобы оставалось место для жизни.'),
-    ('👥', 'Сколько людей будет пользоваться приложением?', ''),
+    ('👨‍❤️‍👩', 'Сколько людей будет пользоваться приложением?', ''),
     ('💰', 'Ваш доход', 'Ежемесячная сумма в BYN'),
     ('🏠', 'Обязательные расходы', 'Аренда, коммунальные, связь'),
     ('🌱', 'Сколько хотите откладывать?', 'Накопления и цели'),
     ('✨', 'Что вам интересно?', ''),
   ];
+
+  /// Выбор режима на онбординге сразу применяет состояние приложения.
+  void _choosePairMode(int choice) {
+    setState(() => pairChoice = choice);
+    AppScope.of(context).setPairMode(choice == 1);
+  }
+
+  void _toggleInterest(String label) {
+    if (!interests.remove(label)) interests.add(label);
+  }
 
   @override
   void dispose() {
@@ -238,11 +250,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ],
                         if (i == 1) ...[
                           const SizedBox(height: 28),
-                          const _ChoiceCard(
-                              emoji: '🧑', label: 'Только я', selected: true),
+                          _ChoiceCard(
+                              emoji: '🧑',
+                              label: 'Только я',
+                              selected: pairChoice == 0,
+                              onTap: () => _choosePairMode(0)),
                           const SizedBox(height: 10),
-                          const _ChoiceCard(
-                              emoji: '💑', label: 'Я и партнёр', selected: false),
+                          _ChoiceCard(
+                              emoji: '👨‍❤️‍👩',
+                              label: 'Я и партнёр',
+                              selected: pairChoice == 1,
+                              onTap: () => _choosePairMode(1)),
                         ],
                         if (i == 2 || i == 3 || i == 4) ...[
                           const SizedBox(height: 28),
@@ -255,17 +273,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ],
                         if (i == 5) ...[
                           const SizedBox(height: 28),
-                          const _ChoiceCard(
-                              emoji: '🍽', label: 'Питание', selected: true),
+                          _ChoiceCard(
+                              emoji: '🍽',
+                              label: 'Питание',
+                              selected: interests.contains('Питание'),
+                              onTap: () => setState(() =>
+                                  _toggleInterest('Питание'))),
                           const SizedBox(height: 10),
-                          const _ChoiceCard(
-                              emoji: '🎬', label: 'Развлечения', selected: true),
+                          _ChoiceCard(
+                              emoji: '🎬',
+                              label: 'Развлечения',
+                              selected: interests.contains('Развлечения'),
+                              onTap: () => setState(() =>
+                                  _toggleInterest('Развлечения'))),
                           const SizedBox(height: 10),
-                          const _ChoiceCard(
-                              emoji: '🛒', label: 'Покупки', selected: false),
+                          _ChoiceCard(
+                              emoji: '🛒',
+                              label: 'Покупки',
+                              selected: interests.contains('Покупки'),
+                              onTap: () => setState(
+                                  () => _toggleInterest('Покупки'))),
                           const SizedBox(height: 10),
-                          const _ChoiceCard(
-                              emoji: '🌱', label: 'Накопления', selected: true),
+                          _ChoiceCard(
+                              emoji: '🌱',
+                              label: 'Накопления',
+                              selected: interests.contains('Накопления'),
+                              onTap: () => setState(() =>
+                                  _toggleInterest('Накопления'))),
                         ],
                       ],
                     ),
@@ -321,38 +355,44 @@ class _ChoiceCard extends StatelessWidget {
   final String emoji;
   final String label;
   final bool selected;
+  final VoidCallback? onTap;
   const _ChoiceCard({
     required this.emoji,
     required this.label,
     required this.selected,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      decoration: BoxDecoration(
-        color: selected ? pal.sage : pal.card,
-        borderRadius: BorderRadius.circular(16),
-        border: selected
-            ? Border.all(color: AppColors.green, width: 1.5)
-            : Border.all(color: pal.sageBorder),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: pal.text,
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected ? pal.sage : pal.card,
+          borderRadius: BorderRadius.circular(16),
+          border: selected
+              ? Border.all(color: AppColors.green, width: 1.5)
+              : Border.all(color: pal.sageBorder),
+        ),
+        child: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: pal.text,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -392,6 +432,8 @@ class _AmountDemo extends StatelessWidget {
 
 // ───────────────────── Bottom sheet: добавление ─────────────────────
 
+/// Быстрое добавление операций: Расход | Доход | Платёж | Покупка |
+/// Накопление. Любая операция моментально пересчитывает дневной лимит.
 class AddSheet extends StatefulWidget {
   const AddSheet({super.key});
 
@@ -400,11 +442,14 @@ class AddSheet extends StatefulWidget {
 }
 
 class _AddSheetState extends State<AddSheet> {
-  int type = 0; // Расход | Доход | Платёж | Покупка | Накопление
+  OpType type = OpType.expense;
   int category = 0;
+  int author = 0; // 0 — Я, 1 — партнёр, 2 — общие
+  int goalIdx = 0;
+  String paymentName = '';
   final amountController = TextEditingController(text: '35');
 
-  static const types = ['Расход', 'Доход', 'Платёж', 'Покупка', 'Накопление'];
+  static const types = OpType.values;
 
   @override
   void dispose() {
@@ -416,7 +461,7 @@ class _AddSheetState extends State<AddSheet> {
   Widget build(BuildContext context) {
     final pal = palOf(context);
     final app = AppScope.of(context);
-    final isExpense = type == 0;
+    final inPair = app.pairMode && app.pairConnected;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -461,13 +506,32 @@ class _AddSheetState extends State<AddSheet> {
                     itemCount: types.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (context, i) => FilterChipPill(
-                      label: types[i],
-                      selected: type == i,
-                      onTap: () => setState(() => type = i),
+                      label: types[i].label,
+                      selected: type == types[i],
+                      onTap: () => setState(() => type = types[i]),
                     ),
                   ),
                 ),
                 const SizedBox(height: 18),
+                if (type == OpType.payment) ...[
+                  TextField(
+                    style: TextStyle(fontSize: 15, color: pal.text),
+                    decoration: InputDecoration(
+                      hintText: 'За что платёж (необязательно)',
+                      hintStyle: TextStyle(fontSize: 14, color: pal.sub),
+                      filled: true,
+                      fillColor: pal.cardAlt,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 14),
+                    ),
+                    onChanged: (v) => paymentName = v.trim(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Text(
                   'Сумма',
                   style: TextStyle(
@@ -503,7 +567,7 @@ class _AddSheetState extends State<AddSheet> {
                         horizontal: 20, vertical: 16),
                   ),
                 ),
-                if (isExpense) ...[
+                if (type == OpType.expense) ...[
                   const SizedBox(height: 16),
                   Text(
                     'Категория',
@@ -527,39 +591,118 @@ class _AddSheetState extends State<AddSheet> {
                     ),
                   ),
                 ],
+                if (type == OpType.savings) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'В какую цель отложить',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: pal.sub),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 38,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: app.goals.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) => FilterChipPill(
+                        label: '${app.goals[i].emoji} ${app.goals[i].name}',
+                        selected: goalIdx == i,
+                        onTap: () => setState(() => goalIdx = i),
+                      ),
+                    ),
+                  ),
+                ],
+                if (inPair && type != OpType.savings) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Автор операции',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: pal.sub),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      for (var i = 0; i < 3; i++) ...[
+                        if (i > 0) const SizedBox(width: 8),
+                        Expanded(
+                          child: FilterChipPill(
+                            label: [
+                              'Я',
+                              app.partnerName,
+                              'Общие',
+                            ][i],
+                            selected: author == i,
+                            onTap: () => setState(() => author = i),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 22),
                 PrimaryButton(
                   label: 'Добавить',
-                  onTap: () {
-                    final value = double.tryParse(
-                            amountController.text.replaceAll(',', '.')) ??
-                        0;
-                    if (type == 0 && value > 0) {
-                      app.addExpense(value, expenseCategories[category]);
-                    }
-                    Navigator.of(context).pop();
-                    if (type == 0 && value > 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Расход ${formatCurrency(value)} добавлен. '
-                            'Сегодня можно потратить ≈ ${formatCurrency(app.dailyLeft)}',
-                          ),
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('Пока реализовано добавление расходов 🙂'),
-                        ),
-                      );
-                    }
-                  },
+                  onTap: () => _submit(context, app),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _submit(BuildContext context, AppState app) {
+    final value =
+        double.tryParse(amountController.text.replaceAll(',', '.')) ?? 0;
+    if (value <= 0) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите сумму больше нуля')),
+      );
+      return;
+    }
+
+    final who = app.pairMode && app.pairConnected
+        ? ['Я', app.partnerName, 'Общие'][author]
+        : 'Я';
+
+    switch (type) {
+      case OpType.expense:
+        app.addOperation(type, value, expenseCategories[category], who);
+        break;
+      case OpType.purchase:
+        app.addOperation(type, value, 'Покупки', who);
+        break;
+      case OpType.payment:
+        app.addOperation(type, value,
+            paymentName.isEmpty ? 'Платёж' : paymentName, who);
+        break;
+      case OpType.savings:
+        app.addSavings(value, app.goals[goalIdx]);
+        break;
+      case OpType.income:
+        app.addOperation(type, value, 'Доход');
+        break;
+    }
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          type == OpType.income
+              ? 'Доход ${formatCurrency(value)} зачислен. '
+                  'Доступно сейчас ${formatCurrency(app.availableNow)}'
+              : type == OpType.savings
+                  ? '${formatCurrency(value)} отложено в «${app.goals[goalIdx].name}» 🌱 '
+                      'Осталось на день ≈ ${formatCurrency(app.dailyLeft)}'
+                  : '${types[type.index].label} ${formatCurrency(value)} записан'
+                      '${who == 'Общие' ? ' (общий)' : who == 'Я' ? '' : ' (${app.partnerName})'}. '
+                      'Сегодня можно потратить ≈ ${formatCurrency(app.dailyLeft)}',
         ),
       ),
     );

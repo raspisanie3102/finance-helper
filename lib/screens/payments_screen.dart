@@ -77,7 +77,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                   ),
                 ),
               ] else ...[
-                if (app.expenses.isEmpty)
+                if (app.operations.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 60),
                     child: Column(
@@ -95,17 +95,18 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     ),
                   )
                 else
-                  for (final e in app.expenses.reversed)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: _PaymentCard(
-                        emoji: _emojiFor(e.category),
-                        name: '${e.category} · ${e.who}',
-                        date:
-                            '${e.date.hour.toString().padLeft(2, '0')}:${e.date.minute.toString().padLeft(2, '0')}',
-                        amount: e.amount,
-                      ),
+                  AnimatedBuilder(
+                    animation: app,
+                    builder: (context, _) => Column(
+                      children: [
+                        for (final o in app.operations.reversed)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                            child: _OperationCard(operation: o),
+                          ),
+                      ],
                     ),
+                  ),
               ],
             ],
           ),
@@ -113,6 +114,13 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       ),
     );
   }
+}
+
+/// Строка истории: любая операция — расход, доход, платёж,
+/// покупка или накопление.
+class _OperationCard extends StatelessWidget {
+  final Operation operation;
+  const _OperationCard({required this.operation});
 
   String _emojiFor(String category) {
     switch (category) {
@@ -130,6 +138,37 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         return '💳';
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final o = operation;
+    final date = o.date;
+    final time =
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+
+    final title = switch (o.type) {
+      OpType.income => 'Доход',
+      OpType.savings => 'Накопление · ${o.category}',
+      OpType.payment => 'Платёж · ${o.category}',
+      _ => o.category,
+    };
+    final emoji = switch (o.type) {
+      OpType.income => '💰',
+      OpType.savings => '🌱',
+      OpType.payment => '🧾',
+      _ => _emojiFor(o.category),
+    };
+    final isIncome = o.type == OpType.income;
+    final whoSuffix = o.who == 'Я' ? '' : ' · ${o.who}';
+
+    return _PaymentCard(
+      emoji: emoji,
+      name: '$title$whoSuffix',
+      date: time,
+      amount: isIncome ? o.amount : -o.amount,
+      positive: isIncome,
+    );
+  }
 }
 
 class _PaymentCard extends StatelessWidget {
@@ -137,12 +176,14 @@ class _PaymentCard extends StatelessWidget {
   final String name;
   final String date;
   final double amount;
+  final bool positive; // доход — зелёным со знаком «+»
 
   const _PaymentCard({
     required this.emoji,
     required this.name,
     required this.date,
     required this.amount,
+    this.positive = false,
   });
 
   @override
@@ -183,7 +224,7 @@ class _PaymentCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 15.5,
               fontWeight: FontWeight.w800,
-              color: pal.text,
+              color: positive ? AppColors.green : pal.text,
             ),
           ),
         ],

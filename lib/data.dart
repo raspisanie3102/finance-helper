@@ -64,9 +64,21 @@ class PaymentItem {
 class Goal {
   final String name;
   final String emoji;
-  final double current;
+  double current; // накопил(и) на текущий момент
   final double target;
-  const Goal(this.name, this.emoji, this.current, this.target);
+  final double partnerCurrent; // вклад партнёра в общую цель (демо)
+  bool shared;
+  Goal(
+    this.name,
+    this.emoji,
+    this.current,
+    this.target, {
+    this.partnerCurrent = 0,
+    this.shared = false,
+  });
+
+  /// Общий прогресс для режима «Пара».
+  double get combinedCurrent => current + partnerCurrent;
 }
 
 class ShopItem {
@@ -78,12 +90,32 @@ class ShopItem {
   ShopItem(this.name, this.emoji, this.qty, this.price, {this.checked = false});
 }
 
-class Expense {
+/// Тип операции, добавляемой через центральную кнопку «+».
+enum OpType { expense, income, payment, purchase, savings }
+
+extension OpTypeInfo on OpType {
+  String get label => switch (this) {
+        OpType.expense => 'Расход',
+        OpType.income => 'Доход',
+        OpType.payment => 'Платёж',
+        OpType.purchase => 'Покупка',
+        OpType.savings => 'Накопление',
+      };
+}
+
+/// Любая финансовая операция: расход, доход, платёж, покупка, накопление.
+class Operation {
+  final OpType type;
   final double amount;
-  final String category;
-  final String who;
+  final String category; // категория расхода / название платежа / цель
+  final String who; // «Я», имя партнёра или «Общие»
   final DateTime date;
-  Expense(this.amount, this.category, this.who) : date = DateTime.now();
+  Operation(
+    this.type,
+    this.amount,
+    this.category,
+    this.who,
+  ) : date = DateTime.now();
 }
 
 // ─────────────────────────── Питание ───────────────────────────
@@ -504,9 +536,11 @@ const List<PaymentItem> upcomingPayments = [
   PaymentItem('Подписка на музыку', '🎵', '30 сентября', 12),
 ];
 
-const List<Goal> goals = [
-  Goal('Путешествие в Италию', '✈️', 42000, 100000),
-  Goal('Новый ноутбук', '💻', 35000, 120000),
+final List<Goal> goalsSeed = [
+  Goal('Путешествие в Италию', '✈️', 42000, 100000,
+      partnerCurrent: 15000, shared: true),
+  Goal('Новый ноутбук', '💻', 35000, 120000,
+      partnerCurrent: 8000, shared: true),
   Goal('Финансовая подушка', '🛟', 12000, 50000),
 ];
 
@@ -531,13 +565,75 @@ const List<String> expenseCategories = [
   'Другое',
 ];
 
-/// Дни недели для ленты питания/плана (сегодня — Вс, 13 сентября 2026).
-final List<({String day, String date, bool today})> weekDays = [
-  (day: 'Пн', date: '7', today: false),
-  (day: 'Вт', date: '8', today: false),
-  (day: 'Ср', date: '9', today: false),
-  (day: 'Чт', date: '10', today: false),
-  (day: 'Пт', date: '11', today: false),
-  (day: 'Сб', date: '12', today: false),
-  (day: 'Вс', date: '13', today: true),
+/// Дни недели для ленты питания/плана — реальные, относительно сегодня.
+class WeekDay {
+  final String day;
+  final String date;
+  final bool today;
+  const WeekDay(this.day, this.date, this.today);
+}
+
+const _weekdayShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+List<WeekDay> currentWeekDays([DateTime? now]) {
+  final n = now ?? DateTime.now();
+  // Понедельник текущей недели (weekday: Пн = 1 … Вс = 7).
+  final monday = DateTime(n.year, n.month, n.day - (n.weekday - 1));
+  return [
+    for (var i = 0; i < 7; i++)
+      WeekDay(
+        _weekdayShort[i],
+        '${monday.day + i}',
+        monday.day + i == n.day,
+      ),
+  ];
+}
+
+const _monthGenitive = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
 ];
+
+const _monthNominative = [
+  'Январь',
+  'Февраль',
+  'Март',
+  'Апрель',
+  'Май',
+  'Июнь',
+  'Июль',
+  'Август',
+  'Сентябрь',
+  'Октябрь',
+  'Ноябрь',
+  'Декабрь',
+];
+
+/// «14 сентября» — для заголовка «Сегодня».
+String todayLabel([DateTime? now]) {
+  final n = now ?? DateTime.now();
+  return '${n.day} ${_monthGenitive[n.month - 1]}';
+}
+
+/// «Сентябрь 2026» — для шапок календарей.
+String monthLabel([DateTime? now]) {
+  final n = now ?? DateTime.now();
+  return '${_monthNominative[n.month - 1]} ${n.year}';
+}
+
+/// Сколько дней осталось в месяце (включая сегодня) — для дневного лимита.
+int daysLeftInMonth([DateTime? now]) {
+  final n = now ?? DateTime.now();
+  final daysInMonth = DateTime(n.year, n.month + 1, 0).day;
+  return daysInMonth - n.day + 1;
+}

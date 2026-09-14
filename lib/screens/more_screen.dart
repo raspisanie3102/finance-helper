@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../format.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -99,7 +100,9 @@ class MoreScreen extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         app.pairMode
-                            ? 'Общий бюджет пары: общий остаток, общие цели и рекомендации для двоих'
+                            ? 'Общий бюджет пары: общий остаток, дневной лимит, '
+                                'порции еды, стоимость развлечений и цели '
+                                'пересчитаны на двоих'
                             : 'Личный бюджет: план, питание и развлечения рассчитаны для одного',
                         style: TextStyle(
                           fontSize: 12.5,
@@ -113,6 +116,80 @@ class MoreScreen extends StatelessWidget {
                         selected: app.pairMode ? 1 : 0,
                         onChanged: (i) => app.setPairMode(i == 1),
                       ),
+                      if (app.pairMode && app.pairConnected) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: pal.cardAlt,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              const Text('👨‍❤️‍👩',
+                                  style: TextStyle(fontSize: 22)),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Код приглашения',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: pal.sub,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      app.inviteCode,
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.2,
+                                        color: AppColors.green,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'Партнёр подключён',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: pal.sub,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${app.partnerName} · '
+                                    '${formatCurrency(app.partnerIncome)}',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: pal.text,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Совокупный доход: ${formatCurrency(app.combinedIncome)}. '
+                          'Расходы можно отмечать как личные или общие — '
+                          'автор выбирается при добавлении операции',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: pal.sub,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -189,7 +266,7 @@ class MoreScreen extends StatelessWidget {
                         emoji: 'ℹ️',
                         title: 'О приложении',
                         trailing: Text(
-                          'Прототип 0.1',
+                          'Прототип 0.2',
                           style: TextStyle(
                             fontSize: 14,
                             color: pal.sub,

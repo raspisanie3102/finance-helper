@@ -118,10 +118,24 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                 child: PrimaryButton(
                   label: 'Купить',
                   onTap: () {
+                    // Подтверждение покупок сразу списывает сумму из бюджета.
+                    final total = app.checkedShoppingTotal;
+                    if (total <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Отметьте продукты галочками — сумма спишется из бюджета 🛒',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    app.buyCheckedItems();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text(
-                          'Сравнение цен по магазинам Минска будет в следующей версии 🛒',
+                          'Куплено на ${formatCurrency(total)} — сумма списана. '
+                          'Сегодня можно потратить ≈ ${formatCurrency(app.dailyLeft)}',
                         ),
                       ),
                     );

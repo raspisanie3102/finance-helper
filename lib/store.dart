@@ -1,65 +1,166 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data.dart';
 
-/// Глобальное состояние приложения (прототип — в памяти).
+/// Глобальное состояние приложения.
 ///
 /// Все суммы хранятся числами; отображение — только через
 /// formatCurrency() из format.dart, всегда в BYN.
+///
+/// Дневной лимит считается по формуле ТЗ: из доступного остатка
+/// вычитаются обязательные платежи, накопления и запланированные
+/// расходы, результат делится на количество оставшихся дней месяца.
+/// Лимит пересчитывается после каждой новой операции.
 class AppState extends ChangeNotifier {
   AppState({required SharedPreferences prefs}) : _prefs = prefs {
     tourCompleted = _prefs.getBool('tourCompleted') ?? false;
+    final themeIdx = _prefs.getInt('themeMode') ?? 2;
+    themeMode = ThemeMode.values[themeIdx.clamp(0, 2)];
+    pairMode = _prefs.getBool('pairMode') ?? false;
+    pairConnected = _prefs.getBool('pairConnected') ?? false;
+    inviteCode = _prefs.getString('inviteCode') ?? '';
   }
 
   final SharedPreferences _prefs;
 
   // ── Настройки ──
   ThemeMode themeMode = ThemeMode.system;
-  bool pairMode = false;
   bool tourCompleted = false;
   final String userName = 'Александр';
   final String city = 'Минск, Беларусь';
 
+  // ── Режим «Пара» ──
+  bool pairMode = false;
+  bool pairConnected = false;
+  String inviteCode = '';
+  final String partnerName = 'Мария';
+  final double partnerIncome = 2900; // доход партнёра (демо-сценарий)
+
   // ── Бюджет (демо-значения по ТЗ) ──
-  static const double income = 3500; // доход
-  static const double reserved = 1020; // обязательные платежи + накопления (остаток месяца)
-  static const double dailyPlan = 120; // дневной план
-  static const double monthlyMandatory = 1500;
-  static const double monthlySavings = 500;
-  static const double monthlyPlanned = 800;
+  double income = 3500; // месячный доход (пополняется операциями «Доход»)
+  static const double monthlyMandatory = 1500; // обязательные расходы
+  static const double monthlySavings = 500; // накопления
+  static const double monthlyPlanned = 800; // запланированные расходы
 
-  final List<Expense> expenses = [];
+  /// Обязательные платежи + накопления + запланированные расходы месяца.
+  double get reserved => monthlyMandatory + monthlySavings + monthlyPlanned;
 
-  double get spentToday =>
-      expenses.fold(0, (sum, e) => sum + e.amount);
+  /// Совокупный доход пары — в режиме «Я и партнёр».
+  double get combinedIncome =>
+      pairMode && pairConnected ? income + partnerIncome : income;
 
-  /// «Доступно сейчас» — пересчитывается после каждого расхода.
-  double get availableNow => income - reserved - spentToday;
+  /// Порций приёма пищи: в паре всё пересчитывается на двоих.
+  int get portions => pairMode && pairConnected ? 2 : 1;
 
-  /// «Сегодня можно потратить».
-  double get dailyLeft => (dailyPlan - spentToday).clamp(0, double.infinity);
+  final List<Operation> operations = [];
+
+  /// Расходы и покупки за сегодня.
+  double get spentToday {
+    final now = DateTime.now();
+    return operations
+        .where((o) =>
+            (o.type == OpType.expense || o.type == OpType.purchase) &&
+            _sameDay(o.date, now))
+        .fold(0, (sum, o) => sum + o.amount);
+  }
+
+  /// Оплаченные платежи и довнесённые накопления (сверх плана месяца).
+  double get extraOutflows =>
+      operations
+          .where((o) => o.type == OpType.payment || o.type == OpType.savings)
+          .fold(0, (sum, o) => sum + o.amount);
+
+  /// «Доступно сейчас» — пересчитывается после каждой операции.
+  double get availableNow =>
+      combinedIncome - reserved - spentToday - extraOutflows;
+
+  /// «Сегодня можно потратить»: доступный остаток, делённый на
+  /// количество оставшихся дней месяца (включая сегодня).
+  double get dailyLeft =>
+      (availableNow / daysLeftInMonth()).clamp(0, double.infinity);
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   // ── Питание ──
   final Map<String, int> mealIdx = {'Завтрак': 0, 'Обед': 0, 'Ужин': 0};
   final Set<String> selectedMeals = {};
 
+  /// Умное обучение: сколько раз блюдо выбрали и сколько раз пропустили.
+  final Map<String, int> dishPicks = {};
+  final Map<String, int> dishSkips = {};
+
   Dish currentDish(String slot) => mealSlots[slot]![mealIdx[slot]!];
 
+  /// Стоимость рациона на сегодня; в паре — на двоих.
   double get menuTotal =>
-      mealSlots.keys.fold(0, (sum, s) => sum + currentDish(s).price);
+      mealSlots.keys.fold(0.0, (sum, s) => sum + currentDish(s).price) *
+      portions;
 
-  /// «Не хочу» — предложить следующий вариант блюда.
+  /// «Не хочу» (кнопка или свайп влево): пропущенное блюдо запоминается,
+  /// следующее подбирается в том же ценовом диапазоне, а часто
+  /// пропускаемые блюда (2+ раза) больше не предлагаются.
   Dish rejectMeal(String slot) {
     final list = mealSlots[slot]!;
-    mealIdx[slot] = (mealIdx[slot]! + 1) % list.length;
+    final current = currentDish(slot);
+    dishSkips[current.name] = (dishSkips[current.name] ?? 0) + 1;
+
+    final candidates = list
+        .where((d) => d.name != current.name)
+        .where((d) => (dishSkips[d.name] ?? 0) < 2)
+        .toList();
+    // Тот же ценовой диапазон: ±30% от цены текущего блюда.
+    final sameRange = candidates
+        .where((d) =>
+            d.price >= current.price * 0.7 && d.price <= current.price * 1.3)
+        .toList();
+    final pool = (sameRange.isNotEmpty ? sameRange : candidates).toList();
+    if (pool.isEmpty) {
+      // Все варианты пропущены — сбрасываем «память» по слоту и идём по кругу.
+      for (final d in list) {
+        dishSkips[d.name] = 0;
+      }
+      mealIdx[slot] = (mealIdx[slot]! + 1) % list.length;
+      notifyListeners();
+      return currentDish(slot);
+    }
+    // Часто выбираемые получают приоритет, быстрые рецепты — бонус.
+    pool.sort((a, b) {
+      final byPicks =
+          (dishPicks[b.name] ?? 0).compareTo(dishPicks[a.name] ?? 0);
+      if (byPicks != 0) return byPicks;
+      return a.minutes.compareTo(b.minutes);
+    });
+    mealIdx[slot] = list.indexOf(pool.first);
     notifyListeners();
     return currentDish(slot);
   }
 
   void toggleMeal(String slot) {
-    if (!selectedMeals.remove(slot)) selectedMeals.add(slot);
+    if (!selectedMeals.remove(slot)) {
+      selectedMeals.add(slot);
+      final dish = currentDish(slot);
+      dishPicks[dish.name] = (dishPicks[dish.name] ?? 0) + 1;
+    }
     notifyListeners();
+  }
+
+  void pickDish(Dish dish) =>
+      dishPicks[dish.name] = (dishPicks[dish.name] ?? 0) + 1;
+
+  /// Популярные блюда: приоритет часто выбираемым и быстрым рецептам.
+  List<Dish> get recommendedPopular {
+    final list = [...popularDishes];
+    list.sort((a, b) {
+      final byPicks =
+          (dishPicks[b.name] ?? 0).compareTo(dishPicks[a.name] ?? 0);
+      if (byPicks != 0) return byPicks;
+      return a.minutes.compareTo(b.minutes);
+    });
+    return list;
   }
 
   // ── Список покупок ──
@@ -80,8 +181,92 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Сумма отмеченных продуктов.
+  double get checkedShoppingTotal =>
+      shopping.where((s) => s.checked).fold(0, (sum, s) => sum + s.price);
+
+  /// Сумма неотмеченных (предстоящих) продуктов.
   double get shoppingTotal =>
       shopping.where((s) => !s.checked).fold(0, (sum, s) => sum + s.price);
+
+  /// «Купить»: подтверждение списка сразу списывает сумму из бюджета.
+  double buyCheckedItems() {
+    final bought = shopping.where((s) => s.checked).toList();
+    if (bought.isEmpty) return 0;
+    final total = bought.fold(0.0, (sum, s) => sum + s.price);
+    operations.add(Operation(
+      OpType.purchase,
+      total,
+      'Покупки',
+      pairMode && pairConnected ? 'Общие' : 'Я',
+    ));
+    shopping.removeWhere((s) => s.checked);
+    notifyListeners();
+    return total;
+  }
+
+  // ── Развлечения: умная выдача ──
+  final Map<String, int> entPicks = {};
+  final Map<String, int> entSkips = {};
+
+  /// Пропуск (кнопка или свайп): 2 пропуска — вариант исключается
+  /// из выдачи автоматически.
+  void skipEntertainment(Entertainment item) {
+    entSkips[item.title] = (entSkips[item.title] ?? 0) + 1;
+    notifyListeners();
+  }
+
+  /// «Показать снова»: сбрасывает исключённые варианты.
+  void resetEntertainmentSkips() {
+    entSkips.clear();
+    notifyListeners();
+  }
+
+  void pickEntertainment(Entertainment item) =>
+      entPicks[item.title] = (entPicks[item.title] ?? 0) + 1;
+
+  /// Отсортированные варианты: часто выбираемые категории выше,
+  /// регулярно пропускаемые исключены.
+  List<Entertainment> orderedEntertainments(String categoryFilter) {
+    final excluded =
+        entSkips.entries.where((e) => e.value >= 2).map((e) => e.key).toSet();
+    final items = entertainments
+        .where((e) =>
+            (categoryFilter == 'Все' || e.category == categoryFilter) &&
+            !excluded.contains(e.title))
+        .toList();
+    items.sort((a, b) {
+      final byPicks =
+          (entPicks[b.title] ?? 0).compareTo(entPicks[a.title] ?? 0);
+      if (byPicks != 0) return byPicks;
+      return b.rating.compareTo(a.rating);
+    });
+    return items;
+  }
+
+  /// Стоимость развлечения с учётом количества человек; варианты
+  /// «Для пары» уже рассчитаны на двоих.
+  double entertainmentPrice(Entertainment item) {
+    if (pairMode && pairConnected && item.category != 'Для пары') {
+      return item.price * 2;
+    }
+    return item.price;
+  }
+
+  // ── Цели ──
+  final List<Goal> goals = List.of(goalsSeed);
+
+  /// «Накопление»: сумма уходит из доступного остатка в выбранную цель.
+  void addSavings(double amount, Goal goal) {
+    goal.current += amount;
+    operations.add(Operation(OpType.savings, amount, goal.name, 'Я'));
+    notifyListeners();
+  }
+
+  void addGoal(Goal goal) {
+    goals.add(goal);
+    notifyListeners();
+  }
 
   // ── Действия ──
   void completeTour() {
@@ -91,18 +276,52 @@ class AppState extends ChangeNotifier {
   }
 
   void addExpense(double amount, String category, [String who = 'Я']) {
-    expenses.add(Expense(amount, category, who));
+    operations.add(Operation(OpType.expense, amount, category, who));
+    notifyListeners();
+  }
+
+  /// Универсальное добавление операции через центральный «+».
+  void addOperation(OpType type, double amount, String category,
+      [String who = 'Я']) {
+    if (type == OpType.income) {
+      income += amount;
+    } else {
+      operations.add(Operation(type, amount, category, who));
+    }
     notifyListeners();
   }
 
   void setThemeMode(ThemeMode mode) {
     themeMode = mode;
+    _prefs.setInt('themeMode', mode.index);
     notifyListeners();
   }
 
+  /// Включение режима «Пара»: генерируется код приглашения, к общему
+  /// бюджету подключается партнёр. Баланс, дневной лимит, порции еды,
+  /// стоимость развлечений и цели пересчитываются на двоих.
   void setPairMode(bool value) {
     pairMode = value;
+    if (value) {
+      if (inviteCode.isEmpty) {
+        inviteCode = _generateInviteCode();
+        _prefs.setString('inviteCode', inviteCode);
+      }
+      if (!pairConnected) {
+        pairConnected = true; // демо: партнёр подключается по коду
+        _prefs.setBool('pairConnected', true);
+      }
+    }
+    _prefs.setBool('pairMode', pairMode);
     notifyListeners();
+  }
+
+  static String _generateInviteCode() {
+    const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    final rnd = Random();
+    final body = String.fromCharCodes(List.generate(
+        5, (_) => alphabet.codeUnitAt(rnd.nextInt(alphabet.length))));
+    return 'FH-$body';
   }
 }
 

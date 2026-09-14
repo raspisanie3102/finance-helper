@@ -39,7 +39,7 @@ class PlanScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Сентябрь 2026',
+                      monthLabel(),
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
@@ -59,7 +59,7 @@ class PlanScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _TipCard(app: app),
               const SizedBox(height: 12),
-              const _MonthStructureCard(),
+              _MonthStructureCard(app: app),
             ],
           ),
         ),
@@ -74,13 +74,14 @@ class _DayStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
+    final days = currentWeekDays();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: AppCard(
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            for (final d in weekDays)
+            for (final d in days)
               Expanded(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -128,9 +129,19 @@ class _TodayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
+    final inPair = app.pairMode && app.pairConnected;
     final byCategory = <String, double>{};
-    for (final e in app.expenses) {
-      byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
+    var sharedToday = 0.0;
+    final today = DateTime.now();
+    for (final o in app.operations) {
+      if (o.type != OpType.expense && o.type != OpType.purchase) continue;
+      if (o.date.year != today.year ||
+          o.date.month != today.month ||
+          o.date.day != today.day) {
+        continue;
+      }
+      if (o.who == 'Общие') sharedToday += o.amount;
+      byCategory[o.category] = (byCategory[o.category] ?? 0) + o.amount;
     }
     // Рацион на сегодня уже входит в план питания
     byCategory['Питание'] = (byCategory['Еда'] ?? 0) + app.menuTotal;
@@ -152,7 +163,7 @@ class _TodayCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Сегодня, 13 сентября',
+              'Сегодня, ${todayLabel()}',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -215,6 +226,13 @@ class _TodayCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (inPair && sharedToday > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Из них общие траты: ${formatCurrency(sharedToday)}',
+                style: TextStyle(fontSize: 12.5, color: pal.sub),
+              ),
+            ],
           ],
         ),
       ),
@@ -261,18 +279,28 @@ class _TipCard extends StatelessWidget {
 }
 
 class _MonthStructureCard extends StatelessWidget {
-  const _MonthStructureCard();
+  final AppState app;
+  const _MonthStructureCard({required this.app});
 
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
+    final inPair = app.pairMode && app.pairConnected;
     final rows = <({String emoji, String name, double amount, bool positive})>[
-      (emoji: '💰', name: 'Доход', amount: AppState.income, positive: true),
+      (
+        emoji: '💰',
+        name: inPair ? 'Доход на двоих' : 'Доход',
+        amount: app.combinedIncome,
+        positive: true
+      ),
       (emoji: '🏠', name: 'Обязательные расходы', amount: -AppState.monthlyMandatory, positive: false),
       (emoji: '🌱', name: 'Накопления', amount: -AppState.monthlySavings, positive: false),
       (emoji: '🛍', name: 'Планируемые расходы', amount: -AppState.monthlyPlanned, positive: false),
     ];
-    const free = 700.0;
+    final free = app.combinedIncome -
+        AppState.monthlyMandatory -
+        AppState.monthlySavings -
+        AppState.monthlyPlanned;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -326,12 +354,16 @@ class _MonthStructureCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Text(
-                  formatCurrency(free),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.green,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: Text(
+                    formatCurrency(free),
+                    key: ValueKey(free),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.green,
+                    ),
                   ),
                 ),
               ],

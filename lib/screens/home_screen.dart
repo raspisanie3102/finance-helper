@@ -65,6 +65,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final app = AppScope.of(context);
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -74,17 +75,17 @@ class _Header extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
-                    'Привет 👋',
-                    style: TextStyle(
+                    'Привет, ${app.userName} 👋',
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF9FC3AE),
                     ),
                   ),
-                  SizedBox(height: 3),
-                  Text(
+                  const SizedBox(height: 3),
+                  const Text(
                     'Финансовый помощник',
                     style: TextStyle(
                       fontSize: 22,
@@ -179,9 +180,11 @@ class _BalanceCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'после обязательных платежей и накоплений',
-              style: TextStyle(
+            Text(
+              app.pairMode && app.pairConnected
+                  ? 'после обязательных платежей и накоплений · на двоих'
+                  : 'после обязательных платежей и накоплений',
+              style: const TextStyle(
                 fontSize: 12.5,
                 color: Color(0xFF87A795),
               ),
@@ -204,7 +207,7 @@ class _BalanceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        formatCurrency(AppState.income),
+                        formatCurrency(app.combinedIncome),
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
@@ -233,7 +236,7 @@ class _BalanceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        formatCurrency(AppState.reserved),
+                        formatCurrency(app.reserved),
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,

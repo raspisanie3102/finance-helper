@@ -32,7 +32,9 @@ class MealsScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Меню на сегодня',
+                        app.portions > 1
+                            ? 'Меню на сегодня · на двоих'
+                            : 'Меню на сегодня',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -55,19 +57,14 @@ class MealsScreen extends StatelessWidget {
               for (final slot in mealSlots.keys)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  // Свайп влево, как и кнопка «Не хочу», заменяет блюдо
+                  // на другое в том же ценовом диапазоне.
                   child: _MealCard(slot: slot),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
-                child: _WeekMenuButton(onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Меню на неделю ≈ 356 BYN — вписывается в план 🌱',
-                      ),
-                    ),
-                  );
-                }),
+                child: _WeekMenuButton(
+                    onTap: () => _showWeekMenuSheet(context, app)),
               ),
               SectionTitle('Популярные блюда', action: 'Все', onAction: () {}),
               SizedBox(
@@ -76,16 +73,206 @@ class MealsScreen extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: popularDishes.length,
+                  itemCount: app.recommendedPopular.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
                   itemBuilder: (context, i) =>
-                      _PopularDishCard(dish: popularDishes[i]),
+                      _PopularDishCard(dish: app.recommendedPopular[i]),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// Рацион на неделю: подбирается с учётом предпочтений, итог —
+  /// с учётом порций на двоих в режиме «Пара».
+  static List<({String label, List<Dish> dishes, double total})>
+      buildWeekMenu(AppState app) {
+    final days = currentWeekDays();
+    return [
+      for (var day = 0; day < 7; day++)
+        () {
+          final dishes = <Dish>[];
+          var slotNumber = 0;
+          for (final slot in mealSlots.keys) {
+            final pool = mealSlots[slot]!
+                .where((d) => (app.dishSkips[d.name] ?? 0) < 2)
+                .toList();
+            pool.sort((a, b) {
+              final byPicks =
+                  (app.dishPicks[b.name] ?? 0).compareTo(app.dishPicks[a.name] ?? 0);
+              if (byPicks != 0) return byPicks;
+              return a.minutes.compareTo(b.minutes);
+            });
+            if (pool.isEmpty) {
+              dishes.add(mealSlots[slot]!.first);
+            } else {
+              dishes.add(pool[(day + slotNumber) % pool.length]);
+            }
+            slotNumber++;
+          }
+          final total = dishes.fold(0.0, (sum, d) => sum + d.price) * app.portions;
+          return (
+            label: '${days[day].day} ${days[day].date}',
+            dishes: dishes,
+            total: total,
+          );
+        }(),
+    ];
+  }
+
+  static void _showWeekMenuSheet(BuildContext context, AppState app) {
+    final pal = palOf(context);
+    final week = buildWeekMenu(app);
+    final weekTotal = week.fold(0.0, (sum, d) => sum + d.total);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.88,
+          ),
+          decoration: BoxDecoration(
+            color: pal.card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: pal.divider,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Меню на неделю',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: pal.text,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                app.portions > 1
+                    ? 'Рацион на двоих, ${monthLabel()}'
+                    : 'Рацион на одного, ${monthLabel()}',
+                style: TextStyle(fontSize: 13, color: pal.sub),
+              ),
+              const SizedBox(height: 14),
+              for (final day in week) ...[
+                AppCard(
+                  color: pal.cardAlt,
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              day.label,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                                color: pal.text,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '≈ ${formatCurrency(day.total)}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        day.dishes.map((d) => d.name).join(' · '),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.4,
+                          color: pal.sub,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Итого за неделю',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: pal.text,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '≈ ${formatCurrency(weekTotal)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.green,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                weekTotal <= app.availableNow
+                    ? 'Вписывается в доступный остаток месяца 🌱'
+                    : 'Выше доступного остатка — замените часть блюд',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: weekTotal <= app.availableNow
+                      ? AppColors.green
+                      : pal.pinkText,
+                ),
+              ),
+              const SizedBox(height: 18),
+              PrimaryButton(
+                label: 'Сформировать список покупок',
+                onTap: () {
+                  for (final day in week) {
+                    for (final dish in day.dishes) {
+                      app.addIngredientsToShopping(dish);
+                    }
+                  }
+                  Navigator.of(sheetContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Продукты на неделю добавлены в список покупок 🛒',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -157,6 +344,7 @@ class _WeekStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
+    final days = currentWeekDays();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: AppCard(
@@ -166,7 +354,7 @@ class _WeekStrip extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'Сентябрь 2026',
+                  monthLabel(),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -181,7 +369,7 @@ class _WeekStrip extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                for (final d in weekDays)
+                for (final d in days)
                   Expanded(
                     child: GestureDetector(
                       onTap: () {},
@@ -239,94 +427,118 @@ class _MealCard extends StatelessWidget {
     final dish = app.currentDish(slot);
     final selected = app.selectedMeals.contains(slot);
 
-    return AppCard(
-      child: Row(
-        children: [
-          DishPhoto(
-            dish: dish,
-            width: 56,
-            height: 56,
-            radius: BorderRadius.circular(16),
+    return Dismissible(
+      key: ValueKey('meal-$slot-${dish.name}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) {
+        final next = app.rejectMeal(slot);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Хорошо, вот ещё вариант: ${next.name} '
+              '≈ ${formatCurrency(next.price)}',
+            ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        );
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: pal.sage,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text('Не хочу 🔄', style: TextStyle(fontSize: 15)),
+      ),
+      child: AppCard(
+        child: Row(
+          children: [
+            DishPhoto(
+              dish: dish,
+              width: 56,
+              height: 56,
+              radius: BorderRadius.circular(16),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    app.portions > 1 ? '$slot · 2 порции' : slot,
+                    style: TextStyle(fontSize: 12, color: pal.sub),
+                  ),
+                  const SizedBox(height: 3),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: Text(
+                      dish.name,
+                      key: ValueKey(dish.name),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: pal.text,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '≈ ${formatCurrency(dish.price)} · ${dish.minutes} мин',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.green,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
               children: [
-                Text(
-                  slot,
-                  style: TextStyle(fontSize: 12, color: pal.sub),
-                ),
-                const SizedBox(height: 3),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: Text(
-                    dish.name,
-                    key: ValueKey(dish.name),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: pal.text,
+                GestureDetector(
+                  onTap: () => app.toggleMeal(slot),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: selected ? AppColors.green : pal.cardAlt,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      selected ? Icons.check_rounded : Icons.add_rounded,
+                      size: 24,
+                      color: selected ? Colors.white : AppColors.green,
                     ),
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '≈ ${formatCurrency(dish.price)} · ${dish.minutes} мин',
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.green,
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () {
+                    final next = app.rejectMeal(slot);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Хорошо, вот ещё вариант: ${next.name} '
+                          '≈ ${formatCurrency(next.price)}',
+                        ),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Не хочу',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: pal.sub,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            children: [
-              GestureDetector(
-                onTap: () => app.toggleMeal(slot),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.green : pal.cardAlt,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    selected ? Icons.check_rounded : Icons.add_rounded,
-                    size: 24,
-                    color: selected ? Colors.white : AppColors.green,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: () {
-                  final next = app.rejectMeal(slot);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Хорошо, вот ещё вариант: ${next.name} '
-                        '≈ ${formatCurrency(next.price)}',
-                      ),
-                    ),
-                  );
-                },
-                child: Text(
-                  'Не хочу',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: pal.sub,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -350,7 +562,7 @@ class _WeekMenuButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('🌱', style: const TextStyle(fontSize: 17)),
+            const Text('🌱', style: TextStyle(fontSize: 17)),
             const SizedBox(width: 8),
             Text(
               'Сформировать меню на неделю',
@@ -423,6 +635,7 @@ Future<void> showDishSheet(BuildContext context, Dish dish) {
   final app = AppScope.of(context);
   final ingredientsTotal =
       dish.ingredients.fold(0.0, (sum, i) => sum + i.price);
+  final portions = app.portions;
 
   return showModalBottomSheet(
     context: context,
@@ -528,7 +741,7 @@ Future<void> showDishSheet(BuildContext context, Dish dish) {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        ing.qty,
+                        portions > 1 ? '${ing.qty} ×2' : ing.qty,
                         style: TextStyle(fontSize: 13, color: pal.sub),
                       ),
                     ),
@@ -553,7 +766,7 @@ Future<void> showDishSheet(BuildContext context, Dish dish) {
                   ),
                 ),
                 Text(
-                  '≈ ${formatCurrency(ingredientsTotal, showFraction: true)}',
+                  '≈ ${formatCurrency(ingredientsTotal * portions, showFraction: true)}',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -570,7 +783,17 @@ Future<void> showDishSheet(BuildContext context, Dish dish) {
             const SizedBox(height: 18),
             PrimaryButton(
               label: 'Добавить в рацион',
-              onTap: () => Navigator.of(sheetContext).pop(),
+              onTap: () {
+                app.pickDish(dish);
+                Navigator.of(sheetContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '«${dish.name}» учтём при подборе рациона 🍽',
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 10),
             GestureDetector(

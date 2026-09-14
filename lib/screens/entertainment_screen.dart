@@ -15,18 +15,14 @@ class EntertainmentScreen extends StatefulWidget {
 
 class _EntertainmentScreenState extends State<EntertainmentScreen> {
   String category = 'Все';
-  final List<String> skipped = [];
 
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
     final app = AppScope.of(context);
+    final inPair = app.pairMode && app.pairConnected;
 
-    final items = entertainments
-        .where((e) =>
-            (category == 'Все' || e.category == category) &&
-            !skipped.contains(e.title))
-        .toList();
+    final items = app.orderedEntertainments(category);
 
     return StatusBarStyle(
       darkIcons: Theme.of(context).brightness != Brightness.dark,
@@ -45,11 +41,13 @@ class _EntertainmentScreenState extends State<EntertainmentScreen> {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   child: Row(
                     children: [
-                      Text('💡', style: const TextStyle(fontSize: 18)),
+                      const Text('💡', style: TextStyle(fontSize: 18)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Сегодня можно потратить ≈ ${formatCurrency(app.dailyLeft)}',
+                          inPair
+                              ? 'Сегодня можно потратить на двоих ≈ ${formatCurrency(app.dailyLeft)}'
+                              : 'Сегодня можно потратить ≈ ${formatCurrency(app.dailyLeft)}',
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
@@ -80,23 +78,18 @@ class _EntertainmentScreenState extends State<EntertainmentScreen> {
               const SizedBox(height: 12),
               Expanded(
                 child: items.isEmpty
-                    ? _EmptyState(onReset: () => setState(() => skipped.clear()))
-                    : ListView.separated(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-                        itemCount: items.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, i) => _EntertainmentCard(
-                          item: items[i],
-                          onSkip: () {
-                            setState(() => skipped.add(items[i].title));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                    Text('Тогда попробуем что-нибудь другое ✨'),
-                              ),
-                            );
-                          },
+                    ? const _EmptyState()
+                    : AnimatedBuilder(
+                        animation: app,
+                        builder: (context, _) => ListView.separated(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+                          itemCount: app.orderedEntertainments(category).length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, i) => _EntertainmentCard(
+                            item: app.orderedEntertainments(category)[i],
+                          ),
                         ),
                       ),
               ),
@@ -109,12 +102,12 @@ class _EntertainmentScreenState extends State<EntertainmentScreen> {
 }
 
 class _EmptyState extends StatelessWidget {
-  final VoidCallback onReset;
-  const _EmptyState({required this.onReset});
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
+    final app = AppScope.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -130,8 +123,20 @@ class _EmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
+          Text(
+            app.entSkips.isEmpty
+                ? 'В этой категории пока ничего нет'
+                : 'Пропущенные варианты исключены из выдачи',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: pal.sub,
+            ),
+          ),
+          const SizedBox(height: 8),
           GestureDetector(
-            onTap: onReset,
+            onTap: app.resetEntertainmentSkips,
             child: Container(
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -157,147 +162,179 @@ class _EmptyState extends StatelessWidget {
 
 class _EntertainmentCard extends StatelessWidget {
   final Entertainment item;
-  final VoidCallback onSkip;
+  const _EntertainmentCard({required this.item});
 
-  const _EntertainmentCard({required this.item, required this.onSkip});
+  void _skip(BuildContext context) {
+    final app = AppScope.of(context);
+    app.skipEntertainment(item);
+    final totalSkips = app.entSkips[item.title] ?? 0;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          totalSkips >= 2
+              ? '«${item.title}» больше не будем предлагать 🚫'
+              : 'Тогда попробуем что-нибудь другое ✨',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
     final app = AppScope.of(context);
-    final fits = item.price <= app.dailyLeft;
-    final over = item.price - app.dailyLeft;
+    final inPair = app.pairMode && app.pairConnected;
+    final price = app.entertainmentPrice(item);
+    final fits = price <= app.dailyLeft;
+    final over = price - app.dailyLeft;
 
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 62,
-                height: 62,
-                decoration: BoxDecoration(
-                  color: pal.sage,
-                  borderRadius: BorderRadius.circular(16),
+    return Dismissible(
+      key: ValueKey('ent-${item.title}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => _skip(context),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: pal.sage,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text('Не подходит 👋', style: TextStyle(fontSize: 15)),
+      ),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 62,
+                  height: 62,
+                  decoration: BoxDecoration(
+                    color: pal.sage,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Text(item.emoji, style: const TextStyle(fontSize: 28)),
+                  ),
                 ),
-                child: Center(
-                  child: Text(item.emoji, style: const TextStyle(fontSize: 28)),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.title,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: pal.text,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: pal.text,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          formatFromPrice(item.price),
-                          style: const TextStyle(
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.green,
+                          Text(
+                            formatFromPrice(price),
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.green,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${item.emoji} ${item.category} · ${item.distance}',
-                      style: TextStyle(fontSize: 12.5, color: pal.sub),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '📍 ${item.address}',
-                      style: TextStyle(fontSize: 12.5, color: pal.sub),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '🕐 ${item.when}',
-                      style: TextStyle(fontSize: 12.5, color: pal.sub),
-                    ),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${item.emoji} ${item.category} · ${item.distance}',
+                        style: TextStyle(fontSize: 12.5, color: pal.sub),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '📍 ${item.address}',
+                        style: TextStyle(fontSize: 12.5, color: pal.sub),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '🕐 ${item.when}',
+                        style: TextStyle(fontSize: 12.5, color: pal.sub),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                // Зелёный бэдж — вписывается в лимит, бежевый — выход за него.
+                color: fits ? pal.sage : pal.tipBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                fits
+                    ? inPair && item.category != 'Для пары'
+                        ? '✓ Подходит бюджету · на двоих'
+                        : '✓ Подходит вашему бюджету'
+                    : 'Выход за дневной бюджет: +${formatCurrency(over)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: fits ? AppColors.green : pal.tipText,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: fits ? pal.sage : pal.pinkBg,
-              borderRadius: BorderRadius.circular(10),
             ),
-            child: Text(
-              fits
-                  ? '✓ Подходит вашему бюджету'
-                  : 'Выход за дневной бюджет: +${formatCurrency(over)}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: fits ? AppColors.green : pal.pinkText,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => showEntertainmentSheet(context, item),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    decoration: BoxDecoration(
-                      color: AppColors.green,
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: const Text(
-                      'Подробнее',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => showEntertainmentSheet(context, item),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      decoration: BoxDecoration(
+                        color: AppColors.green,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: const Text(
+                        'Подробнее',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: onSkip,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                  decoration: BoxDecoration(
-                    color: pal.cardAlt,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Text(
-                    'Не подходит',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: pal.sub,
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () => _skip(context),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: pal.cardAlt,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Text(
+                      'Не подходит',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: pal.sub,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -310,6 +347,8 @@ Future<void> showEntertainmentSheet(
 ) {
   final pal = palOf(context);
   final app = AppScope.of(context);
+  final inPair = app.pairMode && app.pairConnected;
+  final price = app.entertainmentPrice(item);
 
   return showModalBottomSheet(
     context: context,
@@ -370,7 +409,9 @@ Future<void> showEntertainmentSheet(
             _InfoRow(icon: '🕐', text: item.when),
             _InfoRow(
               icon: '💵',
-              text: formatFromPrice(item.price),
+              text: inPair && item.category != 'Для пары'
+                  ? '${formatFromPrice(price)} на двоих'
+                  : formatFromPrice(price),
               value: true,
             ),
             const SizedBox(height: 12),
@@ -384,17 +425,24 @@ Future<void> showEntertainmentSheet(
             ),
             const SizedBox(height: 18),
             PrimaryButton(
-              label: item.price <= 0 ? 'Выбрать' : 'Выбрать · ${formatCurrency(item.price)}',
+              label: price <= 0
+                  ? 'Выбрать'
+                  : 'Выбрать · ${formatCurrency(price)}',
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                if (item.price > 0) {
-                  app.addExpense(item.price, 'Развлечения');
+                app.pickEntertainment(item);
+                if (price > 0) {
+                  app.addExpense(
+                    price,
+                    'Развлечения',
+                    inPair ? 'Общие' : 'Я',
+                  );
                 }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      item.price > 0
-                          ? 'Выбрано! После выбора останется ≈ ${formatCurrency(app.dailyLeft)}'
+                      price > 0
+                          ? 'Выбрано! Сегодня можно потратить ≈ ${formatCurrency(app.dailyLeft)}'
                           : 'Отличный бесплатный вариант 🌳',
                     ),
                   ),
