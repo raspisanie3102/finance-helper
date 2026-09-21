@@ -1,7 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import '../data.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -12,8 +11,8 @@ import '../widgets/common.dart';
 // пользователь попадает в онбординг, начиная с выбора режима
 // («Сколько людей будет пользоваться приложением?»).
 //
-// Прототип: серверной проверки нет, принимаются любые корректно
-// заполненные данные; дополнительно доступен гостевой режим.
+// Аккаунты хранятся локально в JSON: повторная регистрация с тем же
+// email/телефоном запрещена, вход проверяет пароль.
 
 final RegExp _emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
 final RegExp _phoneCharsRe = RegExp(r'^\+?[\d\s\-\(\)]{7,20}$');
@@ -22,7 +21,8 @@ bool _looksLikeEmail(String value) => _emailRe.hasMatch(value.trim());
 
 bool _looksLikePhone(String value) {
   final clean = value.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
-  return _phoneCharsRe.hasMatch(value.trim()) && RegExp(r'^\+?\d{7,15}$').hasMatch(clean);
+  return _phoneCharsRe.hasMatch(value.trim()) &&
+      RegExp(r'^\+?\d{7,15}$').hasMatch(clean);
 }
 
 /// Проверка поля «Email или номер телефона» в реальном времени.
@@ -100,9 +100,9 @@ class _LoginForm extends StatefulWidget {
 class _LoginFormState extends State<_LoginForm> {
   final loginController = TextEditingController();
   final passwordController = TextEditingController();
-  bool obscure = false;
+  bool obscure = true;
   bool loading = false;
-  bool appleLoading = false;
+  String? formError;
 
   @override
   void dispose() {
@@ -117,36 +117,27 @@ class _LoginFormState extends State<_LoginForm> {
       passwordController.text.length >= 6;
 
   Future<void> _signInEmail() async {
-    setState(() => loading = true);
-    await Future.delayed(const Duration(milliseconds: 900));
+    setState(() {
+      loading = true;
+      formError = null;
+    });
+    await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
-    AppScope.of(context).completeSignIn(User(
-      name: 'Александр',
-      email: loginController.text.trim(),
-      passwordHash: stubPasswordHash(passwordController.text),
-      authProvider: 'email',
-    ));
-  }
-
-  Future<void> _signInApple() async {
-    setState(() => appleLoading = true);
-    await Future.delayed(const Duration(milliseconds: 900));
+    final error = AppScope.of(context).signInWithPassword(
+      loginController.text,
+      passwordController.text,
+    );
     if (!mounted) return;
-    AppScope.of(context).completeSignIn(const User(
-      name: 'Александр',
-      email: 'user@privaterelay.appleid.com',
-      passwordHash: '',
-      authProvider: 'apple',
-    ));
+    if (error != null) {
+      setState(() {
+        loading = false;
+        formError = error;
+      });
+    }
   }
 
   void _signInAsGuest() {
-    AppScope.of(context).completeSignIn(const User(
-      name: 'Александр',
-      email: '',
-      passwordHash: '',
-      authProvider: 'guest',
-    ));
+    AppScope.of(context).signInAsGuest();
   }
 
   @override
@@ -184,7 +175,7 @@ class _LoginFormState extends State<_LoginForm> {
             controller: loginController,
             hint: 'Email или номер телефона',
             errorText: contactErr,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => formError = null),
           ),
           const SizedBox(height: 12),
           _AuthField(
@@ -195,11 +186,13 @@ class _LoginFormState extends State<_LoginForm> {
             hintBelow: passErr == null && passwordController.text.isEmpty
                 ? 'Минимум 6 символов'
                 : null,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => formError = null),
             suffix: IconButton(
               onPressed: () => setState(() => obscure = !obscure),
               icon: Icon(
-                obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                obscure
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
                 size: 20,
                 color: pal.sub,
               ),
@@ -210,7 +203,8 @@ class _LoginFormState extends State<_LoginForm> {
             child: GestureDetector(
               onTap: () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Восстановление пароля появится в следующей версии 🌱'),
+                  content: Text(
+                      'Восстановление пароля появится в следующей версии 🌱'),
                 ),
               ),
               child: Padding(
@@ -226,21 +220,26 @@ class _LoginFormState extends State<_LoginForm> {
               ),
             ),
           ),
+          if (formError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              formError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: pal.pinkText,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           _SubmitButton(
             label: 'Войти',
-            enabled: formValid && !loading && !appleLoading,
+            enabled: formValid && !loading,
             loading: loading,
             onTap: _signInEmail,
           ),
           const _OrDivider(),
-          _AppleButton(
-            label: 'Войти через Apple',
-            loading: appleLoading,
-            // Быстрый вход не требует заполнения полей формы.
-            onTap: !loading ? _signInApple : null,
-          ),
-          const SizedBox(height: 14),
           Center(
             child: GestureDetector(
               onTap: _signInAsGuest,
@@ -284,10 +283,10 @@ class _RegisterFormState extends State<_RegisterForm> {
   final contactController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmController = TextEditingController();
-  bool obscure = false;
+  bool obscure = true;
   bool agreed = false;
   bool loading = false;
-  bool appleLoading = false;
+  String? formError;
 
   @override
   void dispose() {
@@ -320,29 +319,24 @@ class _RegisterFormState extends State<_RegisterForm> {
       agreed;
 
   Future<void> _signUpEmail() async {
-    setState(() => loading = true);
-    await Future.delayed(const Duration(milliseconds: 900));
+    setState(() {
+      loading = true;
+      formError = null;
+    });
+    await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
-    AppScope.of(context).completeSignIn(User(
-      name: nameController.text.trim(),
-      email: contactController.text.trim(),
-      passwordHash: stubPasswordHash(passwordController.text),
-      authProvider: 'email',
-    ));
-  }
-
-  Future<void> _signUpApple() async {
-    setState(() => appleLoading = true);
-    await Future.delayed(const Duration(milliseconds: 900));
+    final error = AppScope.of(context).registerAccount(
+      name: nameController.text,
+      contact: contactController.text,
+      password: passwordController.text,
+    );
     if (!mounted) return;
-    AppScope.of(context).completeSignIn(User(
-      name: nameController.text.trim().isNotEmpty
-          ? nameController.text.trim()
-          : 'Пользователь',
-      email: 'user@privaterelay.appleid.com',
-      passwordHash: '',
-      authProvider: 'apple',
-    ));
+    if (error != null) {
+      setState(() {
+        loading = false;
+        formError = error;
+      });
+    }
   }
 
   void _openDocument(String title) {
@@ -386,14 +380,14 @@ class _RegisterFormState extends State<_RegisterForm> {
             controller: nameController,
             hint: 'Имя',
             errorText: nameErr,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => formError = null),
           ),
           const SizedBox(height: 12),
           _AuthField(
             controller: contactController,
             hint: 'Email или номер телефона',
             errorText: contactErr,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => formError = null),
           ),
           const SizedBox(height: 12),
           _AuthField(
@@ -404,11 +398,13 @@ class _RegisterFormState extends State<_RegisterForm> {
             hintBelow: passErr == null && passwordController.text.isEmpty
                 ? 'Минимум 6 символов'
                 : null,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => formError = null),
             suffix: IconButton(
               onPressed: () => setState(() => obscure = !obscure),
               icon: Icon(
-                obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                obscure
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
                 size: 20,
                 color: pal.sub,
               ),
@@ -420,7 +416,7 @@ class _RegisterFormState extends State<_RegisterForm> {
             hint: 'Повторите пароль',
             obscure: obscure,
             errorText: confirmErr,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => formError = null),
           ),
           const SizedBox(height: 16),
           Row(
@@ -483,19 +479,24 @@ class _RegisterFormState extends State<_RegisterForm> {
               ),
             ],
           ),
+          if (formError != null) ...[
+            const SizedBox(height: 14),
+            Text(
+              formError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: pal.pinkText,
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           _SubmitButton(
             label: 'Зарегистрироваться',
-            enabled: formValid && !loading && !appleLoading,
+            enabled: formValid && !loading,
             loading: loading,
             onTap: _signUpEmail,
-          ),
-          const SizedBox(height: 12),
-          _AppleButton(
-            label: 'Зарегистрироваться через Apple',
-            loading: appleLoading,
-            // Для Apple-входа нужно только согласие с условиями.
-            onTap: agreed && !loading && !appleLoading ? _signUpApple : null,
           ),
           const SizedBox(height: 18),
           _AuthSwitchText(
@@ -692,64 +693,6 @@ class _SubmitButton extends StatelessWidget {
   }
 }
 
-/// Кнопка входа через Apple: чёрная в светлой теме, белая в тёмной.
-class _AppleButton extends StatelessWidget {
-  final String label;
-  final bool loading;
-  final VoidCallback? onTap;
-
-  const _AppleButton({
-    required this.label,
-    required this.loading,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? Colors.white : const Color(0xFF101312);
-    final fg = isDark ? const Color(0xFF101312) : Colors.white;
-    final active = onTap != null && !loading;
-
-    return GestureDetector(
-      onTap: active ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: 50,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: bg.withValues(alpha: active ? 1 : 0.55),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: loading
-            ? SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2.2, color: fg),
-              )
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CustomPaint(
-                    size: const Size(16, 16),
-                    painter: _AppleLogoPainter(fg),
-                  ),
-                  const SizedBox(width: 9),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                      color: fg.withValues(alpha: active ? 1 : 0.7),
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
 class _AuthSwitchText extends StatelessWidget {
   final String prefix;
   final String link;
@@ -791,124 +734,5 @@ class _AuthSwitchText extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// Логотип Apple: контур из набора Font Awesome (лицензия CC BY 4.0),
-/// встроен напрямую, чтобы одинаково отрисовываться на всех платформах.
-class _AppleLogoPainter extends CustomPainter {
-  final Color color;
-  _AppleLogoPainter(this.color);
-
-  static const String _svgPath =
-      'M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6'
-      '-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 '
-      '4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 '
-      '75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2'
-      '-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 '
-      '1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 '
-      '69.5-34.3z';
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = _parsePath(_svgPath);
-    final bounds = path.getBounds();
-    if (bounds.isEmpty) return;
-    final scale = size.shortestSide / bounds.longestSide;
-    final matrix = Matrix4.identity()
-      ..translateByDouble(size.width / 2, size.height / 2, 0, 1)
-      ..scaleByDouble(scale, scale, 1, 1)
-      ..translateByDouble(-bounds.center.dx, -bounds.center.dy, 0, 1);
-    canvas.drawPath(
-      path.transform(matrix.storage),
-      Paint()..color = color,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_AppleLogoPainter oldDelegate) =>
-      oldDelegate.color != color;
-
-  /// Мини-парсер SVG-пути: достаточно для команд M/m, C/c, Q/q, L/l, Z/z.
-  static Path _parsePath(String d) {
-    final path = Path();
-    final tokenRe = RegExp(r'([MmCcQqLlZz])|(-?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?)');
-    final matches = tokenRe.allMatches(d);
-
-    double x = 0, y = 0, sx = 0, sy = 0;
-    String cmd = '';
-    final nums = <double>[];
-
-    void flush() {
-      if (nums.isEmpty) return;
-      var isLower = cmd == cmd.toLowerCase();
-      var c = cmd.toLowerCase();
-      var i = 0;
-      switch (c) {
-        case 'm':
-        case 'l':
-          while (i + 1 < nums.length + 1 && i + 2 <= nums.length) {
-            final nx = nums[i], ny = nums[i + 1];
-            if (c == 'm' && i == 0) {
-              x = isLower ? x + nx : nx;
-              y = isLower ? y + ny : ny;
-              path.moveTo(x, y);
-              sx = x;
-              sy = y;
-              cmd = isLower ? 'm' : 'M'; // повторный m трактуем как l
-            } else {
-              x = isLower ? x + nx : nx;
-              y = isLower ? y + ny : ny;
-              path.lineTo(x, y);
-            }
-            i += 2;
-          }
-          break;
-        case 'c':
-          while (i + 6 <= nums.length) {
-            final x1 = isLower ? x + nums[i] : nums[i];
-            final y1 = isLower ? y + nums[i + 1] : nums[i + 1];
-            final x2 = isLower ? x + nums[i + 2] : nums[i + 2];
-            final y2 = isLower ? y + nums[i + 3] : nums[i + 3];
-            final ex = isLower ? x + nums[i + 4] : nums[i + 4];
-            final ey = isLower ? y + nums[i + 5] : nums[i + 5];
-            path.cubicTo(x1, y1, x2, y2, ex, ey);
-            x = ex;
-            y = ey;
-            i += 6;
-          }
-          break;
-        case 'q':
-          while (i + 4 <= nums.length) {
-            final x1 = isLower ? x + nums[i] : nums[i];
-            final y1 = isLower ? y + nums[i + 1] : nums[i + 1];
-            final ex = isLower ? x + nums[i + 2] : nums[i + 2];
-            final ey = isLower ? y + nums[i + 3] : nums[i + 3];
-            path.quadraticBezierTo(x1, y1, ex, ey);
-            x = ex;
-            y = ey;
-            i += 4;
-          }
-          break;
-      }
-      nums.removeRange(0, i);
-    }
-
-    for (final m in matches) {
-      final t = m.group(0)!;
-      if (t.length == 1 && RegExp(r'[A-Za-z]').hasMatch(t)) {
-        flush();
-        cmd = t;
-        if (t.toLowerCase() == 'z') {
-          path.close();
-          x = sx;
-          y = sy;
-        }
-      } else {
-        nums.add(double.parse(t));
-      }
-    }
-    flush();
-    return path;
   }
 }

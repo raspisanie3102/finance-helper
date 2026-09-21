@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -28,6 +29,8 @@ class AppState extends ChangeNotifier {
     monthlyMandatory = _prefs.getDouble('monthlyMandatory') ?? 1500;
     monthlySavings = _prefs.getDouble('monthlySavings') ?? 500;
 
+    _loadRegisteredUsers();
+
     // Восстановление сессии: авторизованный пользователь пропускает
     // экраны входа и регистрации.
     final savedEmail = _prefs.getString('authEmail');
@@ -43,10 +46,13 @@ class AppState extends ChangeNotifier {
 
   final SharedPreferences _prefs;
 
+  static const _usersJsonKey = 'registeredUsersJson';
+
   // ── Настройки ──
   ThemeMode themeMode = ThemeMode.system;
   bool tourCompleted = false;
   User? user;
+  List<User> registeredUsers = [];
   final String city = 'Минск, Беларусь';
 
   /// Имя для приветствий: из аккаунта или демо-имя по умолчанию.
@@ -298,11 +304,86 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Авторизация (прототип: без реальной проверки на сервере) ──
+  // ── Авторизация: локальный JSON-список аккаунтов ──
 
-  /// Сохраняет сессию после входа, регистрации, входа через Apple
-  /// или гостевого режима. Объединение аккаунтов в «Пару» выполняет
-  /// онбординг и код приглашения — здесь этого нет намеренно.
+  void _loadRegisteredUsers() {
+    final raw = _prefs.getString(_usersJsonKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      registeredUsers = [
+        for (final item in list)
+          if (item is Map) User.fromJson(Map<String, dynamic>.from(item)),
+      ];
+    } catch (_) {
+      registeredUsers = [];
+    }
+  }
+
+  void _persistRegisteredUsers() {
+    _prefs.setString(
+      _usersJsonKey,
+      jsonEncode(registeredUsers.map((u) => u.toJson()).toList()),
+    );
+  }
+
+  User? findUserByContact(String contact) {
+    final key = normalizeContact(contact);
+    if (key.isEmpty) return null;
+    for (final u in registeredUsers) {
+      if (normalizeContact(u.email) == key) return u;
+    }
+    return null;
+  }
+
+  /// Регистрация. Возвращает текст ошибки или `null` при успехе.
+  String? registerAccount({
+    required String name,
+    required String contact,
+    required String password,
+  }) {
+    final trimmedName = name.trim();
+    final trimmedContact = contact.trim();
+    if (trimmedName.length < 2) return 'Введите имя';
+    if (trimmedContact.isEmpty) return 'Укажите email или номер телефона';
+    if (findUserByContact(trimmedContact) != null) {
+      return 'Такой пользователь уже зарегистрирован';
+    }
+    final newUser = User(
+      name: trimmedName,
+      email: trimmedContact,
+      passwordHash: stubPasswordHash(password),
+      authProvider: 'email',
+    );
+    registeredUsers.add(newUser);
+    _persistRegisteredUsers();
+    completeSignIn(newUser);
+    return null;
+  }
+
+  /// Вход по email/телефону и паролю. Возвращает ошибку или `null`.
+  String? signInWithPassword(String contact, String password) {
+    final existing = findUserByContact(contact);
+    if (existing == null) {
+      return 'Аккаунт не найден. Сначала зарегистрируйтесь';
+    }
+    if (existing.passwordHash != stubPasswordHash(password)) {
+      return 'Неверный пароль';
+    }
+    completeSignIn(existing);
+    return null;
+  }
+
+  void signInAsGuest() {
+    completeSignIn(const User(
+      name: 'Гость',
+      email: '',
+      passwordHash: '',
+      authProvider: 'guest',
+    ));
+  }
+
+  /// Сохраняет текущую сессию. Список аккаунтов при выходе не очищается.
   void completeSignIn(User newUser) {
     user = newUser;
     _prefs.setString('authEmail', newUser.email);

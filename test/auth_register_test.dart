@@ -18,7 +18,7 @@ void main() {
 
     expect(find.text('Создать аккаунт'), findsOneWidget);
     expect(find.text('Это займёт меньше минуты'), findsOneWidget);
-    expect(find.text('Зарегистрироваться через Apple'), findsOneWidget);
+    expect(find.text('Зарегистрироваться через Apple'), findsNothing);
     expect(find.text('Уже есть аккаунт? Войти'), findsOneWidget);
 
     // Некорректный email — вежливая ошибка в реальном времени.

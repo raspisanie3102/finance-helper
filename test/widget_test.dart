@@ -11,7 +11,8 @@ void main() {
     await tester.pumpWidget(FinanceHelperApp(prefs: prefs));
     await tester.pumpAndSettle();
     expect(find.text('С возвращением'), findsOneWidget);
-    expect(find.text('Войти через Apple'), findsOneWidget);
+    expect(find.text('Войти'), findsOneWidget);
+    expect(find.text('Войти через Apple'), findsNothing);
   });
 
   testWidgets('Гостевой режим открывает онбординг с выбора режима',
@@ -62,5 +63,30 @@ void main() {
     // Новый доход отражён на карточке баланса («На счете»).
     // Форматтер разделяет разряды неразрывным пробелом.
     expect(find.text('2\u00A0000 BYN'), findsOneWidget);
+  });
+
+  testWidgets('Вход без регистрации показывает ошибку', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(FinanceHelperApp(prefs: prefs));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Email или номер телефона'),
+      'anna@mail.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Пароль'),
+      'secret1',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Войти'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Аккаунт не найден. Сначала зарегистрируйтесь'),
+      findsOneWidget,
+    );
+    expect(find.text('С возвращением'), findsOneWidget);
   });
 }

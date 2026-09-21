@@ -273,7 +273,7 @@ class MoreScreen extends StatelessWidget {
                         emoji: 'ℹ️',
                         title: 'О приложении',
                         trailing: Text(
-                          'Прототип 0.3',
+                          'Прототип 0.4',
                           style: TextStyle(
                             fontSize: 14,
                             color: pal.sub,

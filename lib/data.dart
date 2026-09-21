@@ -2,19 +2,40 @@
 
 /// Авторизованный пользователь.
 ///
-/// Для прототипа passwordHash — заглушка (не настоящий хэш),
-/// а вход выполняется без проверки на сервере.
+/// Для прототипа passwordHash — заглушка (не настоящий хэш).
+/// Список аккаунтов хранится локально как JSON.
 class User {
   final String name;
   final String email;
   final String passwordHash;
-  final String authProvider; // 'email' | 'apple' | 'guest'
+  final String authProvider; // 'email' | 'guest'
   const User({
     required this.name,
     required this.email,
     this.passwordHash = '',
     required this.authProvider,
   });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'email': email,
+        'passwordHash': passwordHash,
+        'authProvider': authProvider,
+      };
+
+  factory User.fromJson(Map<String, dynamic> json) => User(
+        name: json['name'] as String? ?? '',
+        email: json['email'] as String? ?? '',
+        passwordHash: json['passwordHash'] as String? ?? '',
+        authProvider: json['authProvider'] as String? ?? 'email',
+      );
+}
+
+/// Email в нижнем регистре, телефон — только цифры и ведущий «+».
+String normalizeContact(String value) {
+  final v = value.trim();
+  if (v.contains('@')) return v.toLowerCase();
+  return v.replaceAll(RegExp(r'[\s\-\(\)]'), '');
 }
 
 /// Заглушка хэша пароля для прототипа: простой FNV-подобный свёрток.
