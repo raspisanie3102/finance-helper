@@ -75,7 +75,6 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   int tab = 0;
-  bool onboarded = false;
   final navAddKey = GlobalKey();
 
   @override
@@ -87,8 +86,8 @@ class _RootShellState extends State<RootShell> {
       return const AuthScreen();
     }
 
-    if (!onboarded) {
-      return OnboardingScreen(onDone: () => setState(() => onboarded = true));
+    if (!app.onboarded) {
+      return OnboardingScreen(onDone: app.completeOnboarding);
     }
 
     final screens = [
@@ -259,7 +258,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: PageView.builder(
                 controller: controller,
                 itemCount: pages.length,
-                onPageChanged: (i) => setState(() => page = i),
+                onPageChanged: (i) {
+                  _saveAmounts();
+                  setState(() => page = i);
+                },
                 itemBuilder: (context, i) {
                   final (emoji, title, subtitle) = pages[i];
                   return Padding(
@@ -382,6 +384,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   PrimaryButton(
                     label: isLast ? 'Начать' : 'Далее',
                     onTap: () {
+                      _saveAmounts();
                       if (isLast) {
                         widget.onDone();
                       } else {

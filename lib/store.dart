@@ -28,19 +28,27 @@ class AppState extends ChangeNotifier {
     income = _prefs.getDouble('income') ?? 3500;
     monthlyMandatory = _prefs.getDouble('monthlyMandatory') ?? 1500;
     monthlySavings = _prefs.getDouble('monthlySavings') ?? 500;
+    onboarded = _prefs.getBool('onboarded') ?? false;
 
     _loadRegisteredUsers();
 
     // Восстановление сессии: авторизованный пользователь пропускает
-    // экраны входа и регистрации.
+    // экраны входа и регистрации. Бюджет читаем из карточки аккаунта,
+    // чтобы зарплата и аренда не смешивались между пользователями.
     final savedEmail = _prefs.getString('authEmail');
     if (savedEmail != null) {
-      user = User(
-        name: _prefs.getString('authName') ?? 'Александр',
-        email: savedEmail,
-        passwordHash: _prefs.getString('authHash') ?? '',
-        authProvider: _prefs.getString('authProvider') ?? 'email',
-      );
+      final existing = findUserByContact(savedEmail);
+      if (existing != null) {
+        user = existing;
+        _applyUserBudget(existing);
+      } else {
+        user = User(
+          name: _prefs.getString('authName') ?? 'Александр',
+          email: savedEmail,
+          passwordHash: _prefs.getString('authHash') ?? '',
+          authProvider: _prefs.getString('authProvider') ?? 'guest',
+        );
+      }
     }
   }
 
@@ -53,6 +61,7 @@ class AppState extends ChangeNotifier {
   bool tourCompleted = false;
   User? user;
   List<User> registeredUsers = [];
+  bool onboarded = false;
   final String city = 'Минск, Беларусь';
 
   /// Имя для приветствий: из аккаунта или демо-имя по умолчанию.
@@ -69,13 +78,42 @@ class AppState extends ChangeNotifier {
   final double partnerIncome = 2900; // доход партнёра (демо-сценарий)
 
   // ── Бюджет (демо-значения по ТЗ; меняются на онбординге) ──
-  double income = 3500; // месячный доход (пополняется операциями «Доход»)
-  double monthlyMandatory = 1500; // обязательные расходы
-  double monthlySavings = 500; // накопления
+  static const double defaultIncome = 3500;
+  static const double defaultMandatory = 1500;
+  static const double defaultSavings = 500;
   static const double monthlyPlanned = 800; // запланированные расходы
+
+  double income = defaultIncome; // месячный доход (пополняется операциями «Доход»)
+  double monthlyMandatory = defaultMandatory; // обязательные расходы
+  double monthlySavings = defaultSavings; // накопления
 
   /// Обязательные платежи + накопления + запланированные расходы месяца.
   double get reserved => monthlyMandatory + monthlySavings + monthlyPlanned;
+
+  /// Предстоящие платежи: шаблон масштабируется так, чтобы сумма
+  /// совпадала с введёнными обязательными расходами (аренда, ЖКХ, связь).
+  List<PaymentItem> get upcomingPayments {
+    if (monthlyMandatory <= 0) return const [];
+    const seed = paymentSeeds;
+    final seedTotal = seed.fold(0.0, (sum, p) => sum + p.amount);
+    if (seedTotal <= 0) {
+      return [
+        PaymentItem('Аренда, ЖКХ и связь', '🏠', 'в этом месяце', monthlyMandatory),
+      ];
+    }
+    final items = <PaymentItem>[];
+    var allocated = 0.0;
+    for (var i = 0; i < seed.length; i++) {
+      final p = seed[i];
+      final amount = i == seed.length - 1
+          ? double.parse((monthlyMandatory - allocated).toStringAsFixed(2))
+          : double.parse(
+              (p.amount / seedTotal * monthlyMandatory).toStringAsFixed(2));
+      allocated += amount;
+      items.add(PaymentItem(p.name, p.emoji, p.date, amount));
+    }
+    return items;
+  }
 
   /// Совокупный доход пары — в режиме «Я и партнёр».
   double get combinedIncome =>
@@ -357,6 +395,7 @@ class AppState extends ChangeNotifier {
     );
     registeredUsers.add(newUser);
     _persistRegisteredUsers();
+    _resetBudgetToDefaults();
     completeSignIn(newUser);
     return null;
   }
@@ -375,6 +414,7 @@ class AppState extends ChangeNotifier {
   }
 
   void signInAsGuest() {
+    _resetBudgetToDefaults();
     completeSignIn(const User(
       name: 'Гость',
       email: '',
@@ -386,6 +426,9 @@ class AppState extends ChangeNotifier {
   /// Сохраняет текущую сессию. Список аккаунтов при выходе не очищается.
   void completeSignIn(User newUser) {
     user = newUser;
+    if (newUser.authProvider != 'guest') {
+      _applyUserBudget(newUser);
+    }
     _prefs.setString('authEmail', newUser.email);
     _prefs.setString('authName', newUser.name);
     _prefs.setString('authProvider', newUser.authProvider);
@@ -394,12 +437,63 @@ class AppState extends ChangeNotifier {
   }
 
   void signOut() {
+    _persistCurrentUserBudget();
     user = null;
+    onboarded = false;
     _prefs.remove('authEmail');
     _prefs.remove('authName');
     _prefs.remove('authProvider');
     _prefs.remove('authHash');
+    _prefs.setBool('onboarded', false);
     notifyListeners();
+  }
+
+  void completeOnboarding() {
+    onboarded = true;
+    _prefs.setBool('onboarded', true);
+    _persistCurrentUserBudget();
+    notifyListeners();
+  }
+
+  void _resetBudgetToDefaults() {
+    income = defaultIncome;
+    monthlyMandatory = defaultMandatory;
+    monthlySavings = defaultSavings;
+    onboarded = false;
+    _prefs.setDouble('income', income);
+    _prefs.setDouble('monthlyMandatory', monthlyMandatory);
+    _prefs.setDouble('monthlySavings', monthlySavings);
+    _prefs.setBool('onboarded', false);
+  }
+
+  void _applyUserBudget(User account) {
+    income = account.income;
+    monthlyMandatory = account.monthlyMandatory;
+    monthlySavings = account.monthlySavings;
+    onboarded = account.onboarded;
+    _prefs.setDouble('income', income);
+    _prefs.setDouble('monthlyMandatory', monthlyMandatory);
+    _prefs.setDouble('monthlySavings', monthlySavings);
+    _prefs.setBool('onboarded', onboarded);
+  }
+
+  void _persistCurrentUserBudget() {
+    final current = user;
+    if (current == null || current.authProvider == 'guest') return;
+    final key = normalizeContact(current.email);
+    final idx = registeredUsers.indexWhere(
+      (u) => normalizeContact(u.email) == key,
+    );
+    if (idx < 0) return;
+    final updated = current.copyWith(
+      income: income,
+      monthlyMandatory: monthlyMandatory,
+      monthlySavings: monthlySavings,
+      onboarded: onboarded,
+    );
+    registeredUsers[idx] = updated;
+    user = updated;
+    _persistRegisteredUsers();
   }
 
   void addExpense(double amount, String category, [String who = 'Я']) {
@@ -410,10 +504,11 @@ class AppState extends ChangeNotifier {
   /// Универсальное добавление операции через центральный «+».
   void addOperation(OpType type, double amount, String category,
       [String who = 'Я']) {
+    operations.add(Operation(type, amount, category, who));
     if (type == OpType.income) {
       income += amount;
-    } else {
-      operations.add(Operation(type, amount, category, who));
+      _prefs.setDouble('income', income);
+      _persistCurrentUserBudget();
     }
     notifyListeners();
   }
@@ -430,6 +525,7 @@ class AppState extends ChangeNotifier {
     if (value < 0) return;
     income = value;
     _prefs.setDouble('income', value);
+    _persistCurrentUserBudget();
     notifyListeners();
   }
 
@@ -437,6 +533,7 @@ class AppState extends ChangeNotifier {
     if (value < 0) return;
     monthlyMandatory = value;
     _prefs.setDouble('monthlyMandatory', value);
+    _persistCurrentUserBudget();
     notifyListeners();
   }
 
@@ -444,6 +541,7 @@ class AppState extends ChangeNotifier {
     if (value < 0) return;
     monthlySavings = value;
     _prefs.setDouble('monthlySavings', value);
+    _persistCurrentUserBudget();
     notifyListeners();
   }
 

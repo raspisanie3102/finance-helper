@@ -89,4 +89,36 @@ void main() {
     expect(restored.signInWithPassword('igor@mail.com', 'qwerty'), isNull);
     expect(restored.user?.name, 'Игорь');
   });
+
+  test('Суммы онбординга сохраняются в бюджет и платежи', () {
+    expect(app.registerAccount(
+      name: 'Анна',
+      contact: 'anna@mail.com',
+      password: 'secret1',
+    ), isNull);
+
+    app.setIncome(4000);
+    app.setMonthlyMandatory(1000);
+    app.setMonthlySavings(200);
+    app.completeOnboarding();
+
+    expect(app.income, 4000);
+    expect(app.monthlyMandatory, 1000);
+    expect(app.monthlySavings, 200);
+    expect(app.reserved, 2000); // 1000 + 200 + 800
+    expect(app.availableNow, 2000); // 4000 - 2000
+    expect(
+      app.upcomingPayments.fold(0.0, (sum, p) => sum + p.amount),
+      closeTo(1000, 0.01),
+    );
+    expect(app.upcomingPayments.first.name, 'Аренда квартиры');
+    expect(app.onboarded, isTrue);
+
+    app.signOut();
+    expect(app.signInWithPassword('anna@mail.com', 'secret1'), isNull);
+    expect(app.income, 4000);
+    expect(app.monthlyMandatory, 1000);
+    expect(app.monthlySavings, 200);
+    expect(app.onboarded, isTrue);
+  });
 }

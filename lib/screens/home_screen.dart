@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data.dart';
 import '../format.dart';
 import '../store.dart';
 import '../theme.dart';
@@ -403,7 +402,8 @@ class _PaymentsPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
-    final preview = upcomingPayments.take(2).toList();
+    final app = AppScope.of(context);
+    final preview = app.upcomingPayments.take(2).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

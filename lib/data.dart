@@ -9,18 +9,51 @@ class User {
   final String email;
   final String passwordHash;
   final String authProvider; // 'email' | 'guest'
+  final double income;
+  final double monthlyMandatory;
+  final double monthlySavings;
+  final bool onboarded;
   const User({
     required this.name,
     required this.email,
     this.passwordHash = '',
     required this.authProvider,
+    this.income = 3500,
+    this.monthlyMandatory = 1500,
+    this.monthlySavings = 500,
+    this.onboarded = false,
   });
+
+  User copyWith({
+    String? name,
+    String? email,
+    String? passwordHash,
+    String? authProvider,
+    double? income,
+    double? monthlyMandatory,
+    double? monthlySavings,
+    bool? onboarded,
+  }) =>
+      User(
+        name: name ?? this.name,
+        email: email ?? this.email,
+        passwordHash: passwordHash ?? this.passwordHash,
+        authProvider: authProvider ?? this.authProvider,
+        income: income ?? this.income,
+        monthlyMandatory: monthlyMandatory ?? this.monthlyMandatory,
+        monthlySavings: monthlySavings ?? this.monthlySavings,
+        onboarded: onboarded ?? this.onboarded,
+      );
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'email': email,
         'passwordHash': passwordHash,
         'authProvider': authProvider,
+        'income': income,
+        'monthlyMandatory': monthlyMandatory,
+        'monthlySavings': monthlySavings,
+        'onboarded': onboarded,
       };
 
   factory User.fromJson(Map<String, dynamic> json) => User(
@@ -28,6 +61,10 @@ class User {
         email: json['email'] as String? ?? '',
         passwordHash: json['passwordHash'] as String? ?? '',
         authProvider: json['authProvider'] as String? ?? 'email',
+        income: (json['income'] as num?)?.toDouble() ?? 3500,
+        monthlyMandatory: (json['monthlyMandatory'] as num?)?.toDouble() ?? 1500,
+        monthlySavings: (json['monthlySavings'] as num?)?.toDouble() ?? 500,
+        onboarded: json['onboarded'] as bool? ?? false,
       );
 }
 
@@ -576,7 +613,9 @@ const List<String> entertainmentCategories = [
 
 // ─────────────────────── Платежи и цели ───────────────────────
 
-const List<PaymentItem> upcomingPayments = [
+/// Шаблон предстоящих платежей. Суммы масштабируются под введённые
+/// на онбординге обязательные расходы, чтобы аренда и ЖКХ шли в учёт.
+const List<PaymentItem> paymentSeeds = [
   PaymentItem('Аренда квартиры', '🏠', '20 сентября', 1200),
   PaymentItem('Интернет', '🌐', '22 сентября', 32),
   PaymentItem('Коммунальные услуги', '💧', '25 сентября', 85),

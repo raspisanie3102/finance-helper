@@ -65,6 +65,45 @@ void main() {
     expect(find.text('2\u00A0000 BYN'), findsOneWidget);
   });
 
+  testWidgets('Зарплата, аренда и накопления с онбординга идут в учёт',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(FinanceHelperApp(prefs: prefs));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Продолжить как гость'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ваш доход'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '4000');
+    await tester.pump();
+
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    expect(find.text('Обязательные расходы'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '1000');
+    await tester.pump();
+
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    expect(find.text('Сколько хотите откладывать?'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '200');
+    await tester.pump();
+
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Начать'));
+    await tester.pumpAndSettle();
+
+    // На счете = зарплата. Зарезервировано = аренда + накопления + план 800.
+    expect(find.text('4\u00A0000 BYN'), findsOneWidget);
+    expect(find.text('2\u00A0000 BYN'), findsWidgets);
+    expect(find.text('Аренда квартиры'), findsOneWidget);
+  });
+
   testWidgets('Вход без регистрации показывает ошибку', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

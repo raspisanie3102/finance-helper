@@ -21,7 +21,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     final pal = palOf(context);
     final app = AppScope.of(context);
     final total =
-        upcomingPayments.fold(0.0, (sum, p) => sum + p.amount);
+        app.upcomingPayments.fold(0.0, (sum, p) => sum + p.amount);
 
     return StatusBarStyle(
       darkIcons: Theme.of(context).brightness != Brightness.dark,
@@ -42,7 +42,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 ),
               ),
               if (tab == 0) ...[
-                for (final p in upcomingPayments)
+                for (final p in app.upcomingPayments)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: _PaymentCard(emoji: p.emoji, name: p.name, date: p.date, amount: p.amount),
