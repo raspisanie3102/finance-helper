@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../format.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../widgets/app_icons.dart';
 import '../widgets/common.dart';
 import 'entertainment_screen.dart';
 import 'goals_screen.dart';
@@ -24,7 +25,18 @@ class HomeScreen extends StatelessWidget {
 
     return StatusBarStyle(
       child: Container(
-        color: AppColors.greenDark,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0E241C),
+              AppColors.greenDark,
+              Color(0xFF06110D),
+            ],
+            stops: [0.0, 0.45, 1.0],
+          ),
+        ),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(
@@ -50,7 +62,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -76,11 +88,11 @@ class _Header extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Привет, ${app.userName} 👋',
-                    style: const TextStyle(
+                    'Привет, ${app.userName}',
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF9FC3AE),
+                      color: AppColors.emeraldGlow.withValues(alpha: 0.75),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -97,16 +109,18 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A473A),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF3D5F4F), width: 1.5),
-              ),
-              child: const Center(
-                child: Text('🌿', style: TextStyle(fontSize: 20)),
+            GlassCard(
+              padding: EdgeInsets.zero,
+              radius: 23,
+              child: SizedBox(
+                width: 46,
+                height: 46,
+                child: Center(
+                  child: AppIconMark(
+                    size: 22,
+                    color: AppColors.emeraldBright,
+                  ),
+                ),
               ),
             ),
           ],
@@ -126,32 +140,18 @@ class _BalanceCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       key: HomeScreen.balanceKey,
-      child: Container(
+      child: GlassCard(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF2B4A3B), Color(0xFF17281F)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.greenDark.withValues(alpha: 0.5),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
+        radius: 24,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Доступно сейчас',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF9FC3AE),
+                color: AppColors.emeraldGlow.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 6),
@@ -183,13 +183,16 @@ class _BalanceCard extends StatelessWidget {
               app.pairMode && app.pairConnected
                   ? 'после обязательных платежей и накоплений · на двоих'
                   : 'после обязательных платежей и накоплений',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
-                color: Color(0xFF87A795),
+                color: AppColors.darkSub.withValues(alpha: 0.9),
               ),
             ),
             const SizedBox(height: 16),
-            Container(height: 1, color: const Color(0xFF33503F)),
+            Container(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
             const SizedBox(height: 14),
             Row(
               children: [
@@ -197,11 +200,11 @@ class _BalanceCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'На счете',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF87A795),
+                          color: AppColors.darkSub.withValues(alpha: 0.85),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -219,18 +222,18 @@ class _BalanceCard extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 30,
-                  color: const Color(0xFF33503F),
+                  color: Colors.white.withValues(alpha: 0.12),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Зарезервировано',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF87A795),
+                          color: AppColors.darkSub.withValues(alpha: 0.85),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -265,12 +268,25 @@ class _DailyBudgetTip extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       key: HomeScreen.tipKey,
-      child: AppCard(
+      child: GlassCard(
         color: pal.tipBg,
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            const Text('💡', style: TextStyle(fontSize: 26)),
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppColors.green.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.green.withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Center(
+                child: AppIconTip(size: 24, color: AppColors.emeraldBright),
+              ),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -321,11 +337,28 @@ class _QuickTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tiles = <({String emoji, String label, WidgetBuilder builder})>[
-      (emoji: '🍽', label: 'Питание', builder: (_) => const MealsScreen()),
-      (emoji: '🛒', label: 'Покупки', builder: (_) => const ShoppingScreen()),
-      (emoji: '🎬', label: 'Развлечения', builder: (_) => const EntertainmentScreen()),
-      (emoji: '🎯', label: 'Цели', builder: (_) => const GoalsScreen(showBack: true)),
+    final tiles = <({Widget icon, String label, WidgetBuilder builder})>[
+      (
+        icon: const AppIconMeals(size: 22, color: AppColors.emeraldBright),
+        label: 'Питание',
+        builder: (_) => const MealsScreen(),
+      ),
+      (
+        icon: const AppIconShopping(size: 22, color: AppColors.emeraldBright),
+        label: 'Покупки',
+        builder: (_) => const ShoppingScreen(),
+      ),
+      (
+        icon: const AppIconEntertainment(
+            size: 22, color: AppColors.emeraldBright),
+        label: 'Развлечения',
+        builder: (_) => const EntertainmentScreen(),
+      ),
+      (
+        icon: const AppIconGoals(size: 22, color: AppColors.emeraldBright),
+        label: 'Цели',
+        builder: (_) => const GoalsScreen(showBack: true),
+      ),
     ];
 
     return Padding(
@@ -337,7 +370,7 @@ class _QuickTiles extends StatelessWidget {
             if (i > 0) const SizedBox(width: 12),
             Expanded(
               child: _Tile(
-                emoji: tiles[i].emoji,
+                icon: tiles[i].icon,
                 label: tiles[i].label,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: tiles[i].builder),
@@ -352,18 +385,18 @@ class _QuickTiles extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  final String emoji;
+  final Widget icon;
   final String label;
   final VoidCallback onTap;
 
-  const _Tile({required this.emoji, required this.label, required this.onTap});
+  const _Tile({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final pal = palOf(context);
     return GestureDetector(
       onTap: onTap,
-      child: AppCard(
+      child: GlassCard(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Column(
           children: [
@@ -371,10 +404,13 @@ class _Tile extends StatelessWidget {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: pal.sage,
+                color: AppColors.green.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: AppColors.green.withValues(alpha: 0.28),
+                ),
               ),
-              child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
+              child: Center(child: icon),
             ),
             const SizedBox(height: 9),
             FittedBox(
@@ -409,13 +445,14 @@ class _PaymentsPreview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, right: 4, top: 20, bottom: 12),
+          padding:
+              const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 12),
           child: Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Ближайшие платежи',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
@@ -427,12 +464,12 @@ class _PaymentsPreview extends StatelessWidget {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const PaymentsScreen()),
                 ),
-                child: const Text(
+                child: Text(
                   'Смотреть все',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF9FC3AE),
+                    color: AppColors.emeraldBright.withValues(alpha: 0.9),
                   ),
                 ),
               ),
@@ -441,7 +478,7 @@ class _PaymentsPreview extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: AppCard(
+          child: GlassCard(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Column(
               children: [
@@ -488,10 +525,15 @@ class _PaymentRow extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: pal.sage,
+              color: AppColors.green.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(13),
+              border: Border.all(
+                color: AppColors.green.withValues(alpha: 0.25),
+              ),
             ),
-            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 18))),
+            child: Center(
+              child: Text(emoji, style: const TextStyle(fontSize: 18)),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

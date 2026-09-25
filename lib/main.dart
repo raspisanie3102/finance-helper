@@ -11,6 +11,7 @@ import 'screens/more_screen.dart';
 import 'screens/plan_screen.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'widgets/app_icons.dart';
 import 'widgets/common.dart';
 import 'widgets/tour.dart';
 
@@ -102,6 +103,7 @@ class _RootShellState extends State<RootShell> {
     return Stack(
       children: [
         Scaffold(
+          backgroundColor: palOf(context).bg,
           body: IndexedStack(index: tab, children: screens),
           extendBody: true,
           bottomNavigationBar: FinanceNavBar(
@@ -297,13 +299,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         if (i == 0) ...[
                           const SizedBox(height: 28),
                           _ChoiceCard(
-                              emoji: '🧑',
+                              leading: AppIconSolo(
+                                size: 24,
+                                color: pairChoice == 0
+                                    ? AppColors.green
+                                    : pal.sub,
+                              ),
                               label: 'Только я',
                               selected: pairChoice == 0,
                               onTap: () => _choosePairMode(0)),
                           const SizedBox(height: 10),
                           _ChoiceCard(
-                              emoji: '👨‍❤️‍👩',
+                              leading: AppIconPair(
+                                size: 24,
+                                color: pairChoice == 1
+                                    ? AppColors.green
+                                    : pal.sub,
+                              ),
                               label: 'Я и партнёр',
                               selected: pairChoice == 1,
                               onTap: () => _choosePairMode(1)),
@@ -327,28 +339,48 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         if (i == 4) ...[
                           const SizedBox(height: 28),
                           _ChoiceCard(
-                              emoji: '🍽',
+                              leading: AppIconMeals(
+                                size: 22,
+                                color: interests.contains('Питание')
+                                    ? AppColors.green
+                                    : pal.sub,
+                              ),
                               label: 'Питание',
                               selected: interests.contains('Питание'),
                               onTap: () => setState(() =>
                                   _toggleInterest('Питание'))),
                           const SizedBox(height: 10),
                           _ChoiceCard(
-                              emoji: '🎬',
+                              leading: AppIconEntertainment(
+                                size: 22,
+                                color: interests.contains('Развлечения')
+                                    ? AppColors.green
+                                    : pal.sub,
+                              ),
                               label: 'Развлечения',
                               selected: interests.contains('Развлечения'),
                               onTap: () => setState(() =>
                                   _toggleInterest('Развлечения'))),
                           const SizedBox(height: 10),
                           _ChoiceCard(
-                              emoji: '🛒',
+                              leading: AppIconShopping(
+                                size: 22,
+                                color: interests.contains('Покупки')
+                                    ? AppColors.green
+                                    : pal.sub,
+                              ),
                               label: 'Покупки',
                               selected: interests.contains('Покупки'),
                               onTap: () => setState(
                                   () => _toggleInterest('Покупки'))),
                           const SizedBox(height: 10),
                           _ChoiceCard(
-                              emoji: '🌱',
+                              leading: AppIconGoals(
+                                size: 22,
+                                color: interests.contains('Накопления')
+                                    ? AppColors.green
+                                    : pal.sub,
+                              ),
                               label: 'Накопления',
                               selected: interests.contains('Накопления'),
                               onTap: () => setState(() =>
@@ -406,12 +438,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _ChoiceCard extends StatelessWidget {
-  final String emoji;
+  final Widget leading;
   final String label;
   final bool selected;
   final VoidCallback? onTap;
   const _ChoiceCard({
-    required this.emoji,
+    required this.leading,
     required this.label,
     required this.selected,
     this.onTap,
@@ -427,15 +459,20 @@ class _ChoiceCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? pal.sage : pal.card,
+          color: selected
+              ? AppColors.green.withValues(alpha: 0.16)
+              : pal.glassFill,
           borderRadius: BorderRadius.circular(16),
-          border: selected
-              ? Border.all(color: AppColors.green, width: 1.5)
-              : Border.all(color: pal.sageBorder),
+          border: Border.all(
+            color: selected
+                ? AppColors.green.withValues(alpha: 0.55)
+                : pal.glassBorder,
+            width: selected ? 1.5 : 1,
+          ),
         ),
         child: Row(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 20)),
+            SizedBox(width: 28, height: 28, child: Center(child: leading)),
             const SizedBox(width: 12),
             Text(
               label,

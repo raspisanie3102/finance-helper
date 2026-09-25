@@ -1,58 +1,66 @@
 import 'package:flutter/material.dart';
 
-/// Цветовая система «Финансового помощника».
-/// Светлая тема: молочный фон, мягкий и глубокий зелёный, бежевые акценты.
-/// Тёмная тема: тёмный зелёно-графитовый фон, более светлые зелёные карточки.
+/// Изумрудно-люксовая палитра «Финансового помощника».
+/// Тёмный emerald как основной look; светлая — мягкий вариант той же гаммы.
 class AppColors {
-  // Общие
-  static const greenDark = Color(0xFF1B2E23); // глубокий зелёный
-  static const greenDeep = Color(0xFF15261C);
-  static const green = Color(0xFF2E5E4E); // основной акцент
-  static const greenSoft = Color(0xFF35604F);
+  // Ядро
+  static const greenDark = Color(0xFF0A1612);
+  static const greenDeep = Color(0xFF0E1F18);
+  static const green = Color(0xFF10B981);
+  static const greenSoft = Color(0xFF1A3D32);
+  static const emeraldBright = Color(0xFF34D399);
+  static const emeraldGlow = Color(0xFF6EE7B7);
 
-  // Светлая тема
-  static const cream = Color(0xFFF7F5EF); // молочный фон
-  static const sage = Color(0xFFDCE8DC); // мягкий светло-зелёный
-  static const sageBorder = Color(0xFFE3EDE2);
-  static const cardLight = Colors.white;
-  static const ink = Color(0xFF182420); // тёмно-графитовый текст
-  static const subLight = Color(0xFF77857B); // нейтральный серий
-  static const tipYellow = Color(0xFFFBF3D9); // приглушённый бежево-жёлтый
-  static const tipYellowText = Color(0xFF87743B);
-  static const pink = Color(0xFFF8E0DC);
+  // Светлая тема (мягкий emerald, не крем)
+  static const cream = Color(0xFFEEF6F2);
+  static const sage = Color(0xFFD4EDE3);
+  static const sageBorder = Color(0xFFB8DCCE);
+  static const cardLight = Color(0xFFF5FBF8);
+  static const ink = Color(0xFF0F241C);
+  static const subLight = Color(0xFF5A7A6C);
+  static const tipYellow = Color(0xFFD1FAE5);
+  static const tipYellowText = Color(0xFF065F46);
+  static const pink = Color(0xFFE8F5F0);
 
-  // Тёмная тема
-  static const darkBg = Color(0xFF0F1A13); // очень тёмный зелёно-графитовый
-  static const darkCard = Color(0xFF1A2A1F); // карточки чуть светлее фона
-  static const darkCardAlt = Color(0xFF223528);
-  static const darkText = Colors.white;
-  static const darkSub = Color(0xFF9FB0A2);
-  static const accentDark = Color(0xFF7FBF9E); // мягкий зелёный акцент
-  static const darkTip = Color(0xFF2A3320);
-  static const darkTipText = Color(0xFFD8CE9A);
-  static const darkPink = Color(0xFF3A2A28);
-  static const darkPinkText = Color(0xFFEBBDB2);
+  // Тёмная тема (люкс)
+  static const darkBg = Color(0xFF0A1612);
+  static const darkCard = Color(0x14FFFFFF);
+  static const darkCardAlt = Color(0x1AFFFFFF);
+  static const darkText = Color(0xFFF0FDF8);
+  static const darkSub = Color(0xFF8BA89A);
+  static const accentDark = Color(0xFF34D399);
+  static const darkTip = Color(0x2810B981);
+  static const darkTipText = Color(0xFFA7F3D0);
+  static const darkPink = Color(0x2210B981);
+  static const darkPinkText = Color(0xFF6EE7B7);
+
+  // Glass
+  static const glassFill = Color(0x14FFFFFF);
+  static const glassFillStrong = Color(0x1FFFFFFF);
+  static const glassBorder = Color(0x33FFFFFF);
+  static const glassHighlight = Color(0x22FFFFFF);
 }
 
-/// Палитра, зависящая от текущей темы. Используется на всех экранах,
-/// чтобы обе темы выглядели продуманно, а не как инверсия.
+/// Палитра, зависящая от текущей темы.
 class Pal {
   final Color bg;
   final Color card;
   final Color cardAlt;
   final Color text;
   final Color sub;
-  final Color accent; // основной зелёный акцент
+  final Color accent;
   final Color onAccent;
-  final Color sage; // светло-зелёная подложка
+  final Color sage;
   final Color sageBorder;
   final Color tipBg;
   final Color tipText;
   final Color pinkBg;
   final Color pinkText;
-  final Color header; // тёмная шапка/карта баланса
+  final Color header;
   final Color divider;
   final Color shadow;
+  final Color glassFill;
+  final Color glassBorder;
 
   const Pal({
     required this.bg,
@@ -71,13 +79,15 @@ class Pal {
     required this.header,
     required this.divider,
     required this.shadow,
+    required this.glassFill,
+    required this.glassBorder,
   });
 }
 
 const palLight = Pal(
   bg: AppColors.cream,
   card: AppColors.cardLight,
-  cardAlt: Color(0xFFEFF3EC),
+  cardAlt: Color(0xFFE4F2EB),
   text: AppColors.ink,
   sub: AppColors.subLight,
   accent: AppColors.green,
@@ -87,10 +97,12 @@ const palLight = Pal(
   tipBg: AppColors.tipYellow,
   tipText: AppColors.tipYellowText,
   pinkBg: AppColors.pink,
-  pinkText: Color(0xFF9A5C4E),
-  header: AppColors.greenDark,
-  divider: Color(0xFFEAE7DD),
-  shadow: Color(0x1422521F),
+  pinkText: Color(0xFF047857),
+  header: AppColors.greenDeep,
+  divider: Color(0xFFC5DFD3),
+  shadow: Color(0x1810B981),
+  glassFill: Color(0xCCF5FBF8),
+  glassBorder: Color(0x6610B981),
 );
 
 const palDark = Pal(
@@ -101,15 +113,17 @@ const palDark = Pal(
   sub: AppColors.darkSub,
   accent: AppColors.accentDark,
   onAccent: AppColors.greenDeep,
-  sage: Color(0xFF24352A),
-  sageBorder: Color(0xFF2C3F33),
+  sage: Color(0xFF163528),
+  sageBorder: Color(0x33FFFFFF),
   tipBg: AppColors.darkTip,
   tipText: AppColors.darkTipText,
   pinkBg: AppColors.darkPink,
   pinkText: AppColors.darkPinkText,
-  header: Color(0xFF16241B),
-  divider: Color(0xFF27362C),
-  shadow: Color(0x40000000),
+  header: Color(0xFF07120E),
+  divider: Color(0x22FFFFFF),
+  shadow: Color(0x66000000),
+  glassFill: AppColors.glassFill,
+  glassBorder: AppColors.glassBorder,
 );
 
 Pal palOf(BuildContext context) =>
@@ -121,9 +135,9 @@ class AppTheme {
         ColorScheme.light(
           primary: AppColors.green,
           onPrimary: Colors.white,
-          secondary: AppColors.greenDark,
+          secondary: AppColors.greenDeep,
           onSecondary: Colors.white,
-          surface: Colors.white,
+          surface: AppColors.cardLight,
           onSurface: AppColors.ink,
         ),
         AppColors.cream,
@@ -134,9 +148,9 @@ class AppTheme {
         ColorScheme.dark(
           primary: AppColors.accentDark,
           onPrimary: AppColors.greenDeep,
-          secondary: AppColors.accentDark,
+          secondary: AppColors.emeraldBright,
           onSecondary: AppColors.greenDeep,
-          surface: AppColors.darkCard,
+          surface: AppColors.greenDeep,
           onSurface: AppColors.darkText,
         ),
         AppColors.darkBg,
@@ -151,7 +165,7 @@ class AppTheme {
       splashFactory: InkSparkle.splashFactory,
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.greenDark,
+        backgroundColor: AppColors.greenDeep,
         contentTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 14,

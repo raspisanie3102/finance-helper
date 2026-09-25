@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,7 +7,7 @@ import '../theme.dart';
 
 // ───────────────────────── Нижняя навигация ─────────────────────────
 
-/// Тёмно-зелёная нижняя навигация: Главная | План | + | Цели | Ещё
+/// Стеклянная нижняя навигация: Главная | План | + | Цели | Ещё
 class FinanceNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
@@ -22,61 +24,71 @@ class FinanceNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.greenDark,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 78,
-          child: Row(
-            children: [
-              _NavItem(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home_rounded,
-                label: 'Главная',
-                selected: selectedIndex == 0,
-                onTap: () => onTap(0),
-              ),
-              _NavItem(
-                icon: Icons.calendar_month_outlined,
-                activeIcon: Icons.calendar_month_rounded,
-                label: 'План',
-                selected: selectedIndex == 1,
-                onTap: () => onTap(1),
-              ),
-              Expanded(
-                child: Center(
-                  child: Transform.translate(
-                    offset: const Offset(0, -14),
-                    child: _AddButton(onTap: onAdd, buttonKey: addButtonKey),
-                  ),
-                ),
-              ),
-              _NavItem(
-                icon: Icons.flag_outlined,
-                activeIcon: Icons.flag_rounded,
-                label: 'Цели',
-                selected: selectedIndex == 2,
-                onTap: () => onTap(2),
-              ),
-              _NavItem(
-                icon: Icons.grid_view_outlined,
-                activeIcon: Icons.grid_view_rounded,
-                label: 'Ещё',
-                selected: selectedIndex == 3,
-                onTap: () => onTap(3),
+    final pal = palOf(context);
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: pal.glassFill.withValues(alpha: 0.55),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(
+              top: BorderSide(color: pal.glassBorder, width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.28),
+                blurRadius: 24,
+                offset: const Offset(0, -6),
               ),
             ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 78,
+              child: Row(
+                children: [
+                  _NavItem(
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home_rounded,
+                    label: 'Главная',
+                    selected: selectedIndex == 0,
+                    onTap: () => onTap(0),
+                  ),
+                  _NavItem(
+                    icon: Icons.calendar_month_outlined,
+                    activeIcon: Icons.calendar_month_rounded,
+                    label: 'План',
+                    selected: selectedIndex == 1,
+                    onTap: () => onTap(1),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Transform.translate(
+                        offset: const Offset(0, -14),
+                        child: _AddButton(onTap: onAdd, buttonKey: addButtonKey),
+                      ),
+                    ),
+                  ),
+                  _NavItem(
+                    icon: Icons.flag_outlined,
+                    activeIcon: Icons.flag_rounded,
+                    label: 'Цели',
+                    selected: selectedIndex == 2,
+                    onTap: () => onTap(2),
+                  ),
+                  _NavItem(
+                    icon: Icons.grid_view_outlined,
+                    activeIcon: Icons.grid_view_rounded,
+                    label: 'Ещё',
+                    selected: selectedIndex == 3,
+                    onTap: () => onTap(3),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -101,6 +113,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pal = palOf(context);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -113,13 +126,20 @@ class _NavItem extends StatelessWidget {
               curve: Curves.easeOut,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
               decoration: BoxDecoration(
-                color: selected ? AppColors.greenSoft : Colors.transparent,
+                color: selected
+                    ? AppColors.green.withValues(alpha: 0.22)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
+                border: selected
+                    ? Border.all(color: AppColors.green.withValues(alpha: 0.35))
+                    : null,
               ),
               child: Icon(
                 selected ? activeIcon : icon,
                 size: 22,
-                color: selected ? Colors.white : Colors.white.withValues(alpha: 0.55),
+                color: selected
+                    ? AppColors.emeraldBright
+                    : pal.text.withValues(alpha: 0.45),
               ),
             ),
             const SizedBox(height: 3),
@@ -128,7 +148,9 @@ class _NavItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected ? Colors.white : Colors.white.withValues(alpha: 0.55),
+                color: selected
+                    ? AppColors.emeraldBright
+                    : pal.text.withValues(alpha: 0.45),
               ),
             ),
           ],
@@ -152,17 +174,25 @@ class _AddButton extends StatelessWidget {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.white,
           shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.emeraldBright, AppColors.green],
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+              color: AppColors.green.withValues(alpha: 0.45),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.28),
+            width: 1.5,
+          ),
         ),
-        child: const Icon(Icons.add_rounded, size: 30, color: AppColors.green),
+        child: const Icon(Icons.add_rounded, size: 30, color: Colors.white),
       ),
     );
   }
@@ -170,7 +200,87 @@ class _AddButton extends StatelessWidget {
 
 // ───────────────────────── Общие элементы ─────────────────────────
 
-/// Белая карточка со скруглением и мягкой тенью.
+/// Стеклянная карточка: blur + полупрозрачная заливка + тонкая обводка.
+class GlassCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
+  final double radius;
+  final Color? color;
+  final bool blur;
+
+  const GlassCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.margin,
+    this.radius = 22,
+    this.color,
+    this.blur = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = palOf(context);
+    final fill = color ?? pal.glassFill;
+    final content = Container(
+      margin: margin,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: pal.glassBorder, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: pal.shadow,
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.10),
+            fill,
+          ],
+        ),
+      ),
+      child: child,
+    );
+
+    if (!blur) return content;
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: fill,
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(color: pal.glassBorder, width: 1),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.12),
+                  fill,
+                ],
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Карточка со скруглением — стеклянный fill без тяжёлого blur (для списков).
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -187,17 +297,11 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pal = palOf(context);
-    return Container(
-      margin: margin,
+    return GlassCard(
       padding: padding,
-      decoration: BoxDecoration(
-        color: color ?? pal.card,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: pal.shadow, blurRadius: 16, offset: const Offset(0, 6)),
-        ],
-      ),
+      margin: margin,
+      color: color,
+      blur: false,
       child: child,
     );
   }
@@ -237,7 +341,7 @@ class SectionTitle extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.green,
+                  color: AppColors.emeraldBright,
                 ),
               ),
             ),
@@ -268,6 +372,7 @@ class SegmentedControl extends StatelessWidget {
       decoration: BoxDecoration(
         color: pal.cardAlt,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: pal.glassBorder),
       ),
       child: Row(
         children: List.generate(labels.length, (i) {
@@ -280,16 +385,13 @@ class SegmentedControl extends StatelessWidget {
                 curve: Curves.easeOut,
                 padding: const EdgeInsets.symmetric(vertical: 9),
                 decoration: BoxDecoration(
-                  color: active ? pal.card : Colors.transparent,
+                  color: active
+                      ? AppColors.green.withValues(alpha: 0.28)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: active
-                      ? [
-                          BoxShadow(
-                            color: pal.shadow,
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
+                  border: active
+                      ? Border.all(
+                          color: AppColors.green.withValues(alpha: 0.4))
                       : null,
                 ),
                 child: Text(
@@ -367,24 +469,19 @@ class ScreenHeader extends StatelessWidget {
           children: [
             GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: pal.card,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: pal.shadow,
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+              child: GlassCard(
+                padding: EdgeInsets.zero,
+                radius: 21,
+                child: SizedBox(
+                  width: 42,
+                  height: 42,
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 17,
+                      color: pal.text,
                     ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 17,
-                  color: pal.text,
+                  ),
                 ),
               ),
             ),
@@ -424,7 +521,7 @@ class StatusBarStyle extends StatelessWidget {
   }
 }
 
-/// Основная зелёная кнопка.
+/// Основная изумрудная кнопка.
 class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -445,15 +542,20 @@ class PrimaryButton extends StatelessWidget {
         width: expanded ? double.infinity : null,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
         decoration: BoxDecoration(
-          color: AppColors.green,
           borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.emeraldBright, AppColors.green],
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.green.withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+              color: AppColors.green.withValues(alpha: 0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         ),
         child: Text(
           label,

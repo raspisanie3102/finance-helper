@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../format.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../widgets/app_icons.dart';
 import '../widgets/common.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -133,8 +134,10 @@ class MoreScreen extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
-                              const Text('👨‍❤️‍👩',
-                                  style: TextStyle(fontSize: 22)),
+                              AppIconPair(
+                                size: 26,
+                                color: AppColors.emeraldBright,
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
